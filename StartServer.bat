@@ -8,32 +8,31 @@ if %errorLevel% neq 0 (
 )
 
 :: Definir as variáveis de caminho
-set caminho1=D:\SERVER\03 - ALPHA SERVER\ADMO_SERVER_V9_TEST_04
-set caminho2=src\Source\Distribution\DigitalWorldOnline.Account.Host\bin\Debug\net7.0\DigitalWorldOnline.Account.exe
-set caminho3=src\Source\Distribution\DigitalWorldOnline.Character.Host\bin\Debug\net7.0\DigitalWorldOnline.Character.exe
-set caminho4=src\Source\Distribution\DigitalWorldOnline.Game.Host\bin\Debug\net7.0\DigitalWorldOnline.Game.exe
-set caminho5=src\Source\Distribution\DigitalWorldOnline.Routine.Host\DigitalWorldOnline.Routine\bin\Debug\net7.0\DigitalWorldOnline.Routine.exe
+set AccountServer=%~dp0\src\Source\Distribution\DigitalWorldOnline.Account.Host\bin\Debug\net7.0\DigitalWorldOnline.Account.exe
+set CharacterServer=%~dp0\src\Source\Distribution\DigitalWorldOnline.Character.Host\bin\Debug\net7.0\DigitalWorldOnline.Character.exe
+set GameServer=%~dp0\src\Source\Distribution\DigitalWorldOnline.Game.Host\bin\Debug\net7.0\DigitalWorldOnline.Game.exe
+set RoutineServer=%~dp0\src\Source\Distribution\DigitalWorldOnline.Routine.Host\DigitalWorldOnline.Routine\bin\Debug\net7.0\DigitalWorldOnline.Routine.exe
 
 :: Espera 1 segundo
 timeout /t 1 /nobreak > nul
 
 :: Executa o Account.Host
-start "" "%caminho1%\%caminho2%"
+start "" "%AccountServer%"
 
 :: Espera 2 segundo
 timeout /t 2 /nobreak > nul
 
 :: Executa o Character.Host
-start "" "%caminho1%\%caminho3%"
+start "" "%CharacterServer%"
 
 :: Espera 2 segundo
 timeout /t 2 /nobreak > nul
 
 :: Executa o Game.Host
-start "" "%caminho1%\%caminho4%"
+start "" "%GameServer%"
 
 :: Espera 2 segundo
 timeout /t 2 /nobreak > nul
 
 :: Executa o Routine.Host
-start "" "%caminho1%\%caminho5%"
+start "" "%RoutineServer%"
