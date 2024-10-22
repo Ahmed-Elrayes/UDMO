@@ -37,7 +37,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             AssetsLoader assets,
             MapServer mapServer,
-            ILogger logger, ISender sender, 
+            ILogger logger, ISender sender,
             DungeonsServer dungeonServer,
             IConfiguration configuration)
         {
@@ -68,7 +68,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var targetSummonMobs = new List<SummonMobModel>();
             SkillTypeEnum skillType;
             var targetPartner = _mapServer.GetEnemyByHandler(client.Tamer.Location.MapId, targetHandler, client.TamerId);
-            
+
             if (targetPartner != null)
             {
                 if (targetPartner.Character.PvpMap == false)
@@ -131,6 +131,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             {
                 var areaOfEffect = skill.SkillInfo.AreaOfEffect;
                 var range = skill.SkillInfo.Range;
+                var targetType = skill.SkillInfo.Target;
 
                 if (_dungeonServer.GetMobByHandler(client.Tamer.Location.MapId, targetHandler, true, client.TamerId) != null)
                 {
@@ -138,32 +139,18 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     var targets = new List<SummonMobModel>();
 
-                    if (skill.SkillInfo.SkillType == 2)
-                    {
-                        skillType = SkillTypeEnum.Implosion;
-
-                        targets = _dungeonServer.GetMobsNearbyTargetMob(client.Tamer.Location.MapId, targetHandler, range, true, client.TamerId);
-
-                        if (targets == null)
-                            return Task.CompletedTask;
-
-                        targetSummonMobs.AddRange(targets);
-                    }
-                    else if (skill.SkillInfo.SkillType == 1)
+                    if (areaOfEffect > 0)
                     {
                         skillType = SkillTypeEnum.TargetArea;
 
-                        if (skill.SkillInfo.AreaOfEffect == 0)
-                        {
-                            targets = _dungeonServer.GetMobsNearbyPartner(client.Partner.Location, range, true, client.TamerId);
-                        }
-                        else
+                        if (targetType == 17)   // Mobs around partner
                         {
                             targets = _dungeonServer.GetMobsNearbyPartner(client.Partner.Location, areaOfEffect, true, client.TamerId);
                         }
-
-                        if (targets == null)
-                            return Task.CompletedTask;
+                        else if (targetType == 18)   // Mobs around mob
+                        {
+                            targets = _dungeonServer.GetMobsNearbyTargetMob(client.Partner.Location.MapId, targetHandler, areaOfEffect, true, client.TamerId);
+                        }
 
                         targetSummonMobs.AddRange(targets);
                     }
@@ -328,28 +315,19 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     var targetMobs = new List<MobConfigModel>();
 
-                    if (skill.SkillInfo.SkillType == 2)
-                    {
-                        skillType = SkillTypeEnum.Implosion;
-
-                        var targets = _dungeonServer.GetMobsNearbyTargetMob(client.Tamer.Location.MapId, targetHandler, range, client.TamerId);
-                        //var targets = _dungeonServer.GetMobsNearbyPartnerbyHandler(client.Partner.Location, targetHandler, range, client.TamerId);
-
-                        targetMobs.AddRange(targets);
-                    }
-                    else if (skill.SkillInfo.SkillType == 1)
+                    if (areaOfEffect > 0)
                     {
                         skillType = SkillTypeEnum.TargetArea;
 
                         var targets = new List<MobConfigModel>();
 
-                        if (skill.SkillInfo.AreaOfEffect == 0)
-                        {
-                            targets = _dungeonServer.GetMobsNearbyPartner(client.Partner.Location, range, client.TamerId);
-                        }
-                        else
+                        if (targetType == 17)   // Mobs around partner
                         {
                             targets = _dungeonServer.GetMobsNearbyPartner(client.Partner.Location, areaOfEffect, client.TamerId);
+                        }
+                        else if (targetType == 18)   // Mobs around mob
+                        {
+                            targets = _dungeonServer.GetMobsNearbyTargetMob(client.Partner.Location.MapId, targetHandler, areaOfEffect, client.TamerId);
                         }
 
                         targetMobs.AddRange(targets);
@@ -544,6 +522,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             {
                 var areaOfEffect = skill.SkillInfo.AreaOfEffect;
                 var range = skill.SkillInfo.Range;
+                var targetType = skill.SkillInfo.Target;
 
                 if (_mapServer.GetMobByHandler(client.Tamer.Location.MapId, targetHandler, true, client.TamerId) != null)
                 {
@@ -551,32 +530,18 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     var targets = new List<SummonMobModel>();
 
-                    if (skill.SkillInfo.SkillType == 2)
-                    {
-                        skillType = SkillTypeEnum.Implosion;
-
-                        targets = _mapServer.GetMobsNearbyTargetMob(client.Tamer.Location.MapId, targetHandler, range, true, client.TamerId);
-
-                        if (targets == null)
-                            return Task.CompletedTask;
-
-                        targetSummonMobs.AddRange(targets);
-                    }
-                    else if (skill.SkillInfo.SkillType == 1)
+                    if (areaOfEffect > 0)
                     {
                         skillType = SkillTypeEnum.TargetArea;
 
-                        if (skill.SkillInfo.AreaOfEffect == 0)
-                        {
-                            targets = _mapServer.GetMobsNearbyPartner(client.Partner.Location, range, true, client.TamerId);
-                        }
-                        else
+                        if (targetType == 17)   // Mobs around partner
                         {
                             targets = _mapServer.GetMobsNearbyPartner(client.Partner.Location, areaOfEffect, true, client.TamerId);
                         }
-
-                        if (targets == null)
-                            return Task.CompletedTask;
+                        else if (targetType == 18)   // Mobs around mob
+                        {
+                            targets = _mapServer.GetMobsNearbyTargetMob(client.Partner.Location.MapId, targetHandler, areaOfEffect, true, client.TamerId);
+                        }
 
                         targetSummonMobs.AddRange(targets);
                     }
@@ -761,35 +726,36 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 }
                 else
                 {
-                    _logger.Verbose($"Using skill on Mob (Map Server)");
+                    _logger.Information($"Using skill on Mob (Map Server)");
 
                     var targetMobs = new List<MobConfigModel>();
 
-                    if (skill.SkillInfo.SkillType == 1)
+                    if (areaOfEffect > 0)
                     {
                         skillType = SkillTypeEnum.TargetArea;
 
                         var targets = new List<MobConfigModel>();
 
-                        if (skill.SkillInfo.AreaOfEffect == 0)
+                        if (targetType == 17)   // Mobs around partner
                         {
-                            targets = _mapServer.GetMobsNearbyPartner(client.Partner.Location, range, client.TamerId);
-                        }
-                        else
-                        {
+                            _logger.Information($"Target 17");
                             targets = _mapServer.GetMobsNearbyPartner(client.Partner.Location, areaOfEffect, client.TamerId);
+                        }
+                        else if (targetType == 18)   // Mobs around mob
+                        {
+                            _logger.Information($"Target 18");
+                            targets = _mapServer.GetMobsNearbyTargetMob(client.Partner.Location.MapId, targetHandler, areaOfEffect, client.TamerId);
                         }
 
                         targetMobs.AddRange(targets);
                     }
-                    else if (skill.SkillInfo.SkillType == 2)
+                    else if (areaOfEffect == 0 && targetType == 80)
                     {
                         skillType = SkillTypeEnum.Implosion;
 
-                        var targets = _mapServer.GetMobsNearbyPartnerbyHandler(client.Partner.Location, targetHandler, range, client.TamerId);
+                        var targets = new List<MobConfigModel>();
 
-                        if (targets == null)
-                            return Task.CompletedTask;
+                        targets = _mapServer.GetMobsNearbyTargetMob(client.Partner.Location.MapId, targetHandler, range, client.TamerId);
 
                         targetMobs.AddRange(targets);
                     }
@@ -805,7 +771,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                         targetMobs.Add(mob);
                     }
 
-                    _logger.Verbose($"Skill Type: {skillType}");
+                    _logger.Information($"Skill Type: {skillType}");
 
                     if (targetMobs.Any())
                     {
@@ -1001,7 +967,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                                 targetMob?.Die();
                             }
-                        
+
                         }
 
                         if (!_mapServer.MobsAttacking(client.Tamer.Location.MapId, client.TamerId))
@@ -1040,7 +1006,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     );
             });
         }
-        
+
         public async Task SendBattleOffTask(GameClient client, int attackerHandler, bool dungeon)
         {
             await Task.Run(async () =>
@@ -1120,7 +1086,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var SkillValue = skill.Apply.FirstOrDefault(x => x.Type > 0);
 
             double f1BaseDamage = (SkillValue.Value) + ((client.Partner.Evolutions.FirstOrDefault(x => x.Type == client.Partner.CurrentType).Skills[skillSlot].CurrentLevel) * SkillValue.IncreaseValue);
-            
+
             double SkillFactor = 0;
             int clonDamage = 0;
             var attributeMultiplier = 0.00;
@@ -1140,7 +1106,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             // ---------------------------------------------------------------------------
 
             f1BaseDamage = Math.Floor(f1BaseDamage * cloneFactor);
-            
+
             double addedf1Damage = Math.Floor(f1BaseDamage * SkillFactor / 100.0);
 
             // ---------------------------------------------------------------------------
@@ -1197,13 +1163,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             return totalDamage;
         }
-        
+
         private int CalculateDamageOrHeal(GameClient client, SummonMobModel? targetMob, DigimonSkillAssetModel? targetSkill, SkillCodeAssetModel? skill, byte skillSlot)
         {
             var SkillValue = skill.Apply.FirstOrDefault(x => x.Type > 0);
 
             double f1BaseDamage = (SkillValue.Value) + ((client.Partner.Evolutions.FirstOrDefault(x => x.Type == client.Partner.CurrentType).Skills[skillSlot].CurrentLevel) * SkillValue.IncreaseValue);
-            
+
             double SkillFactor = 0;
             int clonDamage = 0;
             var attributeMultiplier = 0.00;
@@ -1216,7 +1182,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             double clonPercent = client.Tamer.Partner.Digiclone.ATValue / 100.0;
             int cloValue = (int)(client.Tamer.Partner.BaseStatus.ATValue * clonPercent);
-            
+
             double factorFromPF = 144.0 / client.Tamer.Partner.Digiclone.ATValue;
             double cloneFactor = Math.Round(1.0 + (0.43 / factorFromPF), 2);
 
@@ -1275,7 +1241,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             return totalDamage;
         }
-        
+
         private int CalculateDamageOrHealPlayer(GameClient client, DigimonModel? targetMob, DigimonSkillAssetModel? targetSkill, SkillCodeAssetModel? skill, byte skillSlot)
         {
 

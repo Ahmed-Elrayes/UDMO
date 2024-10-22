@@ -26,6 +26,7 @@ using DigitalWorldOnline.GameHost;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Serilog;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace DigitalWorldOnline.Game
@@ -1375,13 +1376,14 @@ namespace DigitalWorldOnline.Game
                             $"Digimon SKD: {client.Tamer.Partner.SKD}\n" +
                             $"Digimon SCD: {client.Tamer.Partner.SCD / 100}%\n" +
                             $"Tamer BonusEXP: {client.Tamer.BonusEXP}%\n" +
-                            $"Tamer Move Speed: {client.Tamer.MS}"));
+                            $"Tamer Move Speed: {client.Tamer.MS}", ""));
 
                     }
                     break;
 
                 // -- TOOLS --------------------------------------
 
+                #region Tools
                 case "tools":
                     {
                         var regex = @"^tools\s*$";
@@ -1557,8 +1559,37 @@ namespace DigitalWorldOnline.Game
                     }
                     break;
 
+                case "maptamers":
+                    {
+                        var regex = @"^maptamers\s*$";
+                        var match = Regex.Match(message, regex, RegexOptions.IgnoreCase);
+
+                        if (!match.Success)
+                        {
+                            client.Send(new SystemMessagePacket($"Unknown command.\nType !maptamers"));
+                            break;
+                        }
+
+                        var mapTamers = _mapServer.Maps.FirstOrDefault(x => x.Clients.Exists(x => x.TamerId == client.Tamer.Id));
+
+                        if (mapTamers != null)
+                        {
+                            client.Send(new SystemMessagePacket($"Total Tamers in Map: {mapTamers.ConnectedTamers.Count}", ""));
+                        }
+                        else
+                        {
+                            mapTamers = _dungeonServer.Maps.FirstOrDefault(x => x.Clients.Exists(x => x.TamerId == client.Tamer.Id));
+
+                            client.Send(new SystemMessagePacket($"Total Tamers in Dungeon Map: {mapTamers.ConnectedTamers.Count}", ""));
+                        }
+
+                    }
+                    break;
+                #endregion
+
                 // -- INFO ---------------------------------------
 
+                #region INFO
                 case "updatestats":
                     {
                         var regex = @"^updatestats\s*$";
@@ -1575,9 +1606,11 @@ namespace DigitalWorldOnline.Game
                         client.Send(new SystemMessagePacket($"Stats updated !!"));
                     }
                     break;
+                #endregion
 
                 // -- MAINTENANCE --------------------------------
 
+                #region Maintenance
                 case "live":
                     {
                         if (client.AccessLevel == AccountAccessLevelEnum.Administrator)
@@ -1680,9 +1713,11 @@ namespace DigitalWorldOnline.Game
                         }
                     }
                     break;
+                #endregion
 
                 // -- MESSAGE ------------------------------------
 
+                #region Messages
                 case "notice":
                     {
                         var notice = string.Join(" ", message.Split(' ').Skip(1));
@@ -1704,9 +1739,11 @@ namespace DigitalWorldOnline.Game
                         _mapServer.BroadcastGlobal(new ChatMessagePacket(notice, ChatTypeEnum.Megaphone, "[System]", 52, 120).Serialize());
                     }
                     break;
+                #endregion
 
                 // -- MEMBERSHIP ---------------------------------
 
+                #region Membership
                 case "membership":
                     {
                         var regex = @"(membership\sadd\s\d{1,9}$){1}";
@@ -1779,9 +1816,11 @@ namespace DigitalWorldOnline.Game
                         }
                     }
                     break;
+                #endregion
 
                 // -- LOCATION -----------------------------------
 
+                #region Location
                 case "where":
                     {
                         var regex = @"(where$){1}|(location$){1}|(position$){1}|(pos$){1}";
@@ -1794,7 +1833,9 @@ namespace DigitalWorldOnline.Game
                         }
 
                         var loc = client.Tamer.Location;
-                        client.Send(new SystemMessagePacket($"Map: {loc.MapId} X: {loc.X} Y: {loc.Y}"));
+                        var ch = client.Tamer.Channel;
+
+                        client.Send(new SystemMessagePacket($"Map: {loc.MapId} X: {loc.X} Y: {loc.Y} Ch: {ch}"));
                     }
                     break;
 
@@ -2069,8 +2110,58 @@ namespace DigitalWorldOnline.Game
                     }
                     break;
 
+                case "exit":
+                    {
+                        var regex = @"^exit\s*$";
+                        var match = Regex.Match(message, regex, RegexOptions.IgnoreCase);
+
+                        if (!match.Success)
+                        {
+                            client.Send(new SystemMessagePacket($"Unknown command. Check the available commands on the Admin Portal."));
+                            break;
+                        }
+
+                        if (client.Tamer.Location.MapId == 89)
+                        {
+                            var mapId = 3;
+
+                            var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(mapId));
+                            var waypoints = await _sender.Send(new MapRegionListAssetsByMapIdQuery(mapId));
+
+                            if (client.DungeonMap)
+                                _dungeonServer.RemoveClient(client);
+                            else
+                                _mapServer.RemoveClient(client);
+
+                            var destination = waypoints.Regions.First();
+
+                            client.Tamer.NewLocation(mapId, destination.X, destination.Y);
+                            await _sender.Send(new UpdateCharacterLocationCommand(client.Tamer.Location));
+
+                            client.Tamer.Partner.NewLocation(mapId, destination.X, destination.Y);
+                            await _sender.Send(new UpdateDigimonLocationCommand(client.Tamer.Partner.Location));
+
+                            client.Tamer.UpdateState(CharacterStateEnum.Loading);
+                            await _sender.Send(new UpdateCharacterStateCommand(client.TamerId, CharacterStateEnum.Loading));
+
+                            client.SetGameQuit(false);
+
+                            client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
+                                client.Tamer.Location.MapId, client.Tamer.Location.X, client.Tamer.Location.Y).Serialize());
+                        }
+                        else
+                        {
+                            client.Send(new SystemMessagePacket($"Este comando so pode ser usado no Mapa de Evento !!"));
+                            break;
+                        }
+
+                    }
+                    break;
+                #endregion
+
                 // -- BUFF ---------------------------------------
-                
+
+                #region Buff
                 case "buff":
                     {
                         var regex = @"buff\s(add|remove)\s\d+";
@@ -2272,9 +2363,11 @@ namespace DigitalWorldOnline.Game
 
                     }
                     break;
+                #endregion
 
                 // -- PARTY --------------------------------------
 
+                #region Party
                 case "party":
                     {
                         //var regex = @"^party\s*$";
@@ -2360,6 +2453,7 @@ namespace DigitalWorldOnline.Game
                         }
                     }
                     break;
+                #endregion
 
                 // -- PVP ----------------------------------------
 
@@ -2407,10 +2501,9 @@ namespace DigitalWorldOnline.Game
                     }
                     break;*/
 
-                // -- HELP ---------------------------------------
 
-
-
+                // -- Assets ----------------------------------------
+                #region Reload Assets
                 case "assetreload":
                     {
                         var regex = @"^assetreload\s*$";
@@ -2425,18 +2518,16 @@ namespace DigitalWorldOnline.Game
 
                     }
                     break;
+                #endregion
+
                 // -- HELP ---------------------------------------
 
+                #region Help
                 case "help":
                     {
                         var commandsList = new List<string>
                         {
-                            "live",
-                            "maintenance",
                             "hatch",
-                            "notice",
-                            "ann",
-                            "where",
                             "tamer",
                             "digimon",
                             "currency",
@@ -2453,18 +2544,30 @@ namespace DigitalWorldOnline.Game
                             "godmode",
                             "unlockevos",
                             "openseals",
-                            "membership",
-                            "fullacc",
-                            "clon",
                             "summon",
                             "heal",
                             "stats",
+                            "tools",
+                            "fullacc",
+                            "evopack",
+                            "spacepack",
+                            "clon",
+                            "maptamers",
+                            "updatestats",
+                            "live",
+                            "maintenance",
+                            "notice",
+                            "ann",
+                            "where",
                             "tp",
                             "tpto",
                             "tptamer",
+                            "exit",
                             "buff",
+                            "title",
                             "party",
                             "partymove",
+                            "assetreload",
                         };
 
                         var packetsToSend = new List<SystemMessagePacket> { new SystemMessagePacket($"SYSTEM COMMANDS:", ""), };
@@ -2496,6 +2599,7 @@ namespace DigitalWorldOnline.Game
                             ));
                     }
                     break;
+                #endregion
 
                 // -----------------------------------------------
 

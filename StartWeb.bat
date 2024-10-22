@@ -8,11 +8,10 @@ if %errorLevel% neq 0 (
 )
 
 :: Definir as variáveis de caminho
-set caminho1=D:\SERVER\03 - ALPHA SERVER\ADMO_SERVER_V9_TEST_04
-set caminho2=src\Source\Distribution\DigitalWorldOnline.Admin\bin\Debug\net7.0\DigitalWorldOnline.Admin.exe
+set caminho2=%~dp0\src\Source\Distribution\DigitalWorldOnline.Admin\bin\Debug\net7.0\DigitalWorldOnline.Admin.exe
 
 :: Espera 1 segundo
 timeout /t 1 /nobreak > nul
 
 :: Executa o programa
-start "" "%caminho1%\%caminho2%"
+start "" "%caminho2%"

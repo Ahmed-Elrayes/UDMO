@@ -151,8 +151,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 {
                     var tamerMap = _dungeonServer.Maps.First(x => x.Clients.Exists(y => y.TamerId == client.TamerId));
 
-                    _logger.Information($"Verifying if is Royal Base Map: {tamerMap.IsRoyalBase.ToString()}");
-
                     if (!portal.IsLocal && tamerMap.IsRoyalBase)
                     {
                         int MapId = tamerMap.MapId;
@@ -190,7 +188,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             return;
                         }
                     }
-
                 }
 
                 if (portal.IsLocal)
@@ -207,8 +204,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     return;
                 }
 
-                _dungeonServer.RemoveClient(client);
-
                 client.Tamer.NewLocation(portal.DestinationMapId, portal.DestinationX, portal.DestinationY);
                 await _sender.Send(new UpdateCharacterLocationCommand(client.Tamer.Location));
 
@@ -217,6 +212,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                 client.Tamer.UpdateState(CharacterStateEnum.Loading);
                 await _sender.Send(new UpdateCharacterStateCommand(client.TamerId, CharacterStateEnum.Loading));
+
+                _dungeonServer.RemoveClient(client);
+                _mapServer.RemoveClient(client);
 
                 client.SetGameQuit(false);
 
