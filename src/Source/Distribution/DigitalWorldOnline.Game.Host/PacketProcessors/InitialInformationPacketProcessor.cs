@@ -199,7 +199,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     client.Send(new PartyMemberListPacket(party, client.TamerId, (byte)(party.Members.Count - 1)));
                 }
 
-                if (!client.DungeonMap)
+                /*if (!client.DungeonMap)
                 {
                     var region = _assets.Maps.FirstOrDefault(x => x.MapId == character.Location.MapId);
 
@@ -213,7 +213,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             await _sender.Send(new UpdateCharacterMapRegionCommand(characterRegion));
                         }
                     }
-                }
+                }*/
 
                 await ReceiveArenaPoints(client);
 
@@ -227,7 +227,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             }
             catch (Exception ex)
             {
-                _logger.Error($"[{account.LastPlayedCharacter}] An error occurred: {ex.Message}", ex);
+                _logger.Error($"[{account.LastPlayedCharacter}] An error occurred: {ex.Message}, Line: {ex.Source.ToString()}, Stacktrace: {ex.StackTrace.ToString()}", ex);
                 client.Disconnect();
             }
             finally

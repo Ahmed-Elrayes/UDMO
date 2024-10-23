@@ -101,7 +101,7 @@ namespace DigitalWorldOnline.Commons.Interfaces
         Task UpdateCharacterDigimonSlotsAsync(long characterId, byte slots);
 
         Task AddInventorySlotAsync(ItemModel newSlot);
-        
+
         Task<CharacterDTO> ChangeTamerModelAsync(long characterId, CharacterModelEnum model);
 
         Task<CharacterDTO> ChangeCharacterNameAsync(long characterId, string newCharacterName);
@@ -111,19 +111,23 @@ namespace DigitalWorldOnline.Commons.Interfaces
         Task<DigimonDTO> ChangeDigimonNameAsync(long characterId, string newDigimonName);
 
         Task UpdateTamerSkillCooldownAsync(CharacterTamerSkillModel activeSkill);
-        
+
         Task UpdateItemSocketStatusAsync(ItemModel item);
-        
+
         Task UpdateCharacterArenaPointsAsync(CharacterArenaPointsModel points);
-        
+
         Task UpdateCharacterInProgressAsync(InProgressQuestModel progress);
-        
+
         Task AddCharacterProgressAsync(CharacterProgressModel progress);
-        
+
         Task UpdateTamerAttendanceRewardAsync(AttendanceRewardModel attendanceRewardModel);
-        
+
         Task UpdateTamerTimeRewardAsync(TimeRewardModel timeRewardModel);
 
         Task UpdateCharacterArenaDailyPointsAsync(CharacterArenaDailyPointsModel points);
+
+        Task<CharacterEncyclopediaDTO> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
+
+        Task UpdateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
     }
 }

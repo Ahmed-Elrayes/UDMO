@@ -869,11 +869,11 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             }
 
         }
-        
+
         private async Task Fruits(GameClient client, short itemSlot, ItemModel targetItem)
         {
             var fruitConfig = _configs.Fruits.FirstOrDefault(x => x.ItemId == targetItem.ItemId);
-            
+
             if (fruitConfig == null)
             {
                 client.Send(
@@ -1020,6 +1020,14 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             {
                 client.Send(new SystemMessagePacket($"Digimon Level or Size not enought to transcend !!", ""));
                 client.Send(new SystemMessagePacket($"Grade Required: 5\nSize Required: 125%", ""));
+
+                client.Send(
+                    UtilitiesFunctions.GroupPackets(
+                        new ItemConsumeFailPacket(itemSlot, targetItem.ItemInfo.Type).Serialize(),
+                        new LoadInventoryPacket(client.Tamer.Inventory, InventoryTypeEnum.Inventory).Serialize()
+                    )
+                );
+
                 return;
             }
             else if (digimonGrade == DigimonHatchGradeEnum.Perfect && digimonSize >= 12500)
@@ -1051,15 +1059,42 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                 client.Send(new SystemMessagePacket($"Tamer {client.Tamer.Name} used {targetItem.ItemInfo.Name} to transcend partner {client.Partner.Name} to {client.Partner.HatchGrade} with {client.Partner.Size / 100}% size.", ""));
                 _logger.Verbose($"Tamer {client.Tamer.Name} used {targetItem.ItemInfo.Name} to transcend partner {client.Partner.Name} to {client.Partner.HatchGrade} with {client.Partner.Size / 100}% size.");
+
+                client.Tamer.UpdateState(CharacterStateEnum.Loading);
+                await _sender.Send(new UpdateCharacterStateCommand(client.TamerId, CharacterStateEnum.Loading));
+
+                _mapServer.RemoveClient(client);
+
+                client.SetGameQuit(false);
+
+                client.Send(new MapSwapPacket(
+                    _configuration[GamerServerPublic], _configuration[GameServerPort],
+                    client.Tamer.Location.MapId, client.Tamer.Location.X, client.Tamer.Location.Y));
             }
             else if (digimonGrade == DigimonHatchGradeEnum.Transcend)
             {
                 client.Send(new SystemMessagePacket($"Your Digimon is already transcended", ""));
+
+                client.Send(
+                    UtilitiesFunctions.GroupPackets(
+                        new ItemConsumeFailPacket(itemSlot, targetItem.ItemInfo.Type).Serialize(),
+                        new LoadInventoryPacket(client.Tamer.Inventory, InventoryTypeEnum.Inventory).Serialize()
+                    )
+                );
+
                 return;
             }
             else
             {
                 client.Send(new SystemMessagePacket($"Requeriments not match to transcend !!", ""));
+
+                client.Send(
+                    UtilitiesFunctions.GroupPackets(
+                        new ItemConsumeFailPacket(itemSlot, targetItem.ItemInfo.Type).Serialize(),
+                        new LoadInventoryPacket(client.Tamer.Inventory, InventoryTypeEnum.Inventory).Serialize()
+                    )
+                );
+
                 return;
             }
 
@@ -1824,7 +1859,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                                                     int value = apply.Value * (randomValue / 100);
 
                                                     var digimonResult = _expManager.ReceiveDigimonExperience(value, client.Tamer.Partner);
-                                                    
+
                                                     if (digimonResult.Success)
                                                     {
                                                         client.Send(

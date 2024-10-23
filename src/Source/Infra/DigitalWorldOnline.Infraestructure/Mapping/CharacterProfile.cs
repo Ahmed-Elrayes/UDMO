@@ -84,6 +84,12 @@ namespace DigitalWorldOnline.Infraestructure.Mapping
             CreateMap<CharacterTamerSkillModel, CharacterTamerSkillDTO>()
                 .ForMember(dest => dest.Id, x => x.Ignore())
                .ReverseMap();
+
+            CreateMap<CharacterEncyclopediaModel, CharacterEncyclopediaDTO>()
+              .ReverseMap();
+
+            CreateMap<CharacterEncyclopediaEvolutionsModel, CharacterEncyclopediaEvolutionsDTO>()
+              .ReverseMap();
         }
     }
 }

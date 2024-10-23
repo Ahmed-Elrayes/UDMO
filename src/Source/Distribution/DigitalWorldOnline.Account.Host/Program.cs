@@ -37,7 +37,10 @@ namespace DigitalWorldOnline.Account
         {
             Console.WriteLine(((Exception)e.ExceptionObject).InnerException);
             if (e.IsTerminating)
+            {
+                Console.WriteLine($"{e.ExceptionObject.ToString()}");
                 Console.WriteLine("Terminating by unhandled exception...");
+            }
             else
                 Console.WriteLine("Received unhandled exception.");
 
@@ -103,7 +106,7 @@ namespace DigitalWorldOnline.Account
                         .AddUserSecrets<Program>();
                 }).Build();
 
-            //Applying migrations. It's enough to do this on the AccountServer, for now.
+            // Applying migrations. It's enough to do this on the AccountServer, for now.
             var scopeFactory = host.Services.GetService<IServiceScopeFactory>();
             using var scope = scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetService<DatabaseContext>();

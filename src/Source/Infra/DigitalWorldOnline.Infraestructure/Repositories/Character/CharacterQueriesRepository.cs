@@ -119,6 +119,8 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                 .Include(x => x.Digimons)
                     .ThenInclude(y => y.Evolutions)
                         .ThenInclude(z => z.Skills)
+                .Include(x => x.Encyclopedia)
+                    .ThenInclude(y => y.Evolutions)
                 .SingleOrDefaultAsync(x => x.Id == characterId);
 
             if (character != null)

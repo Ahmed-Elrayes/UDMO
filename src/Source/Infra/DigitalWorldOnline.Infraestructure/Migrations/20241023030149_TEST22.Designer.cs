@@ -4,6 +4,7 @@ using DigitalWorldOnline.Infraestructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DigitalWorldOnline.Infraestructure.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20241023030149_TEST22")]
+    partial class TEST22
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2994,7 +2997,8 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
 
                     b.HasIndex("CharacterId");
 
-                    b.HasIndex("DigimonEvolutionId");
+                    b.HasIndex("DigimonEvolutionId")
+                        .IsUnique();
 
                     b.ToTable("Encyclopedia", "Character");
                 });
@@ -3570,7 +3574,7 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         new
                         {
                             Id = 1L,
-                            CreatedAt = new DateTime(2024, 10, 23, 6, 18, 40, 575, DateTimeKind.Local).AddTicks(8653),
+                            CreatedAt = new DateTime(2024, 10, 23, 6, 1, 48, 285, DateTimeKind.Local).AddTicks(9961),
                             Hash = "pMgM+NOH0Z+RwR9F1iFVOOwKrW1iDaifx4jWDnH1Dbo="
                         });
                 });
@@ -5347,7 +5351,7 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         {
                             Id = 1L,
                             Active = true,
-                            CreatedAt = new DateTime(2024, 10, 23, 6, 18, 40, 581, DateTimeKind.Local).AddTicks(9805),
+                            CreatedAt = new DateTime(2024, 10, 23, 6, 1, 48, 292, DateTimeKind.Local).AddTicks(1934),
                             Interval = 1,
                             Name = "Daily Quests",
                             NextRunTime = new DateTime(2024, 10, 24, 0, 0, 0, 0, DateTimeKind.Local),
@@ -6011,8 +6015,8 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         .IsRequired();
 
                     b.HasOne("DigitalWorldOnline.Commons.DTOs.Assets.EvolutionAssetDTO", "EvolutionAsset")
-                        .WithMany()
-                        .HasForeignKey("DigimonEvolutionId")
+                        .WithOne()
+                        .HasForeignKey("DigitalWorldOnline.Commons.DTOs.Character.CharacterEncyclopediaDTO", "DigimonEvolutionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

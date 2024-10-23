@@ -10,6 +10,7 @@ using DigitalWorldOnline.Commons.Enums.Account;
 using DigitalWorldOnline.Commons.Enums.Character;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Models.Account;
+using DigitalWorldOnline.Commons.Models.Asset;
 using DigitalWorldOnline.Commons.Models.Base;
 using DigitalWorldOnline.Commons.Models.Character;
 using DigitalWorldOnline.Commons.Models.Digimon;
@@ -484,6 +485,17 @@ namespace DigitalWorldOnline.Game
 
                                     await _sender.Send(new UpdateDigimonSizeCommand(client.Partner.Id, client.Partner.Size));
                                     await _sender.Send(new UpdateDigimonGradeCommand(client.Partner.Id, client.Partner.HatchGrade));
+
+                                    client.Tamer.UpdateState(CharacterStateEnum.Loading);
+                                    await _sender.Send(new UpdateCharacterStateCommand(client.TamerId, CharacterStateEnum.Loading));
+
+                                    _mapServer.RemoveClient(client);
+
+                                    client.SetGameQuit(false);
+                                    client.Tamer.UpdateSlots();
+
+                                    client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
+                                        client.Tamer.Location.MapId, client.Tamer.Location.X, client.Tamer.Location.Y));
                                 }
                                 break;
 
@@ -1381,6 +1393,42 @@ namespace DigitalWorldOnline.Game
                     }
                     break;
 
+
+                case "encyclopedia":
+                    {
+                        var regex = @"^encyclopedia\s*$";
+                        var match = Regex.Match(message, regex, RegexOptions.IgnoreCase);
+
+                        if (!match.Success)
+                        {
+                            client.Send(new SystemMessagePacket($"Unknown command.\nType !stats"));
+                            break;
+                        }
+
+                        DigimonBaseInfoAssetModel digimon = _mapper.Map<DigimonBaseInfoAssetModel>(await _sender.Send(new DigimonBaseInfoQuery(12133)));
+
+                        var digimonEvolutionInfo = _assets.EvolutionInfo.FirstOrDefault(x => x.Type == 21134);
+                        _logger.Information($"type: 21134, info: {digimonEvolutionInfo?.ToString()}");
+                        if(digimonEvolutionInfo == null)
+                        {
+                            client.Send(new SystemMessagePacket($"evolution info not found"));
+                            return;
+                        }
+                        List<EvolutionLineAssetModel> evolutionLines = digimonEvolutionInfo.Lines.OrderBy(x => x.Id).ToList();
+
+                        var encyclopedia = CharacterEncyclopediaModel.Create(client.TamerId, digimonEvolutionInfo.Id, false, false);
+                        evolutionLines?.ForEach(x =>
+                        {
+                            encyclopedia.Evolutions.Add(CharacterEncyclopediaEvolutionsModel.Create(encyclopedia.Id, x.Type, false));
+                        });
+                        client.Tamer.Encyclopedia.Add(encyclopedia);
+
+                        var encyclopediaAdded  = await _sender.Send(new CreateCharacterEncyclopediaCommand(encyclopedia));
+
+                        client.Send(new SystemMessagePacket($"Encyclopedia added! {encyclopediaAdded.Id}, evolutions"));
+
+                    }
+                    break;
                 // -- TOOLS --------------------------------------
 
                 #region Tools
@@ -2511,7 +2559,7 @@ namespace DigitalWorldOnline.Game
 
                         if (!match.Success)
                         {
-                            client.Send(new SystemMessagePacket($"Unknown command.\nType !party"));
+                            client.Send(new SystemMessagePacket($"Unknown command.\nType !assetreload"));
                             break;
                         }
                         var assetsLoader = _assets.Reload();

@@ -53,5 +53,6 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
         public CharacterArenaDailyPointsDTO DailyPoints { get; set; }
         public List<CharacterTamerSkillDTO> ActiveSkill { get; set; }
         public GuildDTO? Guild { get; set; }
+        public List<CharacterEncyclopediaDTO> Encyclopedia { get; set; }
     }
 }

@@ -1262,5 +1262,43 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                 _context.SaveChanges();
             }
         }
+
+        public async Task<CharacterEncyclopediaDTO> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia)
+        {
+            var tamerDto = await _context.Character
+                .AsNoTracking()
+                .Include(x => x.Encyclopedia)
+                .ThenInclude(x => x.Evolutions)
+                .SingleOrDefaultAsync(x => x.Id == characterEncyclopedia.CharacterId);
+
+            var dto = _mapper.Map<CharacterEncyclopediaDTO>(characterEncyclopedia);
+
+            if (tamerDto != null)
+            {
+                tamerDto.Encyclopedia.Add(dto);
+
+                _context.Update(tamerDto);
+
+                _context.SaveChanges();
+            }
+
+            return dto;
+        }
+
+        public async Task UpdateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia)
+        {
+            var dto = await _context.CharacterEncyclopedia
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == characterEncyclopedia.Id);
+
+            if(dto != null)
+            {
+                dto.CreateDate = characterEncyclopedia.CreateDate;
+                dto.IsRewardAllowed = characterEncyclopedia.IsRewardAllowed;
+                dto.IsRewardReceived = characterEncyclopedia.IsRewardReceived;
+                _context.CharacterEncyclopedia.Update(dto);
+                _context.SaveChanges();
+            }
+        }
     }
 }

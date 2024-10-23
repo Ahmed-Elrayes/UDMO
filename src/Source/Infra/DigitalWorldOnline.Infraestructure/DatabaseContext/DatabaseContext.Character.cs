@@ -29,6 +29,8 @@ namespace DigitalWorldOnline.Infraestructure
         public DbSet<CharacterActiveEvolutionDTO> CharacterActiveEvolution { get; set; }
         public DbSet<CharacterDigimonArchiveDTO> CharacterDigimonArchive { get; set; }
         public DbSet<CharacterDigimonArchiveItemDTO> CharacterDigimonArchiveItem { get; set; }
+        public DbSet<CharacterEncyclopediaDTO> CharacterEncyclopedia { get; set; }
+        public DbSet<CharacterEncyclopediaEvolutionsDTO> CharacterEncyclopediaEvolutions { get; set; }
 
         internal static void CharacterEntityConfiguration(ModelBuilder builder)
         {
@@ -51,6 +53,8 @@ namespace DigitalWorldOnline.Infraestructure
             builder.ApplyConfiguration(new CharacterDigimonArchiveConfiguration());
             builder.ApplyConfiguration(new CharacterDigimonArchiveItemConfiguration());
             builder.ApplyConfiguration(new CharacterTamerSkillConfiguration());
+            builder.ApplyConfiguration(new CharacterEncyclopediaConfiguration());
+            builder.ApplyConfiguration(new CharacterEncyclopediaEvolutionsConfiguration());
         }
     }
 }

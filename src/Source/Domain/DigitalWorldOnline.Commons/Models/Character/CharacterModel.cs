@@ -259,6 +259,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public ushort GenericHandler { get; private set; }
         public List<ItemModel> RepurchaseList { get; private set; }
         public bool TempShowFullMap { get; set; }
+        public List<CharacterEncyclopediaModel> Encyclopedia { get; private set; }
 
         public CharacterModel()
         {
@@ -314,6 +315,8 @@ namespace DigitalWorldOnline.Commons.Models.Character
                 new ItemListModel(ItemListEnum.TamerShop),
                 new ItemListModel(ItemListEnum.ConsignedShop)
             };
+
+            Encyclopedia = new List<CharacterEncyclopediaModel>();
 
             StartTimers();
         }

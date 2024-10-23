@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/src/Source/Distribution/DigitalWorldOnline.Account.Api/appsettings.Development.json
+/src/Source/Infra/DigitalWorldOnline.Infraestructure/DatabaseContext/DatabaseContext.cs
