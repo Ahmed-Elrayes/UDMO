@@ -4,6 +4,7 @@ using DigitalWorldOnline.Infraestructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DigitalWorldOnline.Infraestructure.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20241023233543_UpdateEncyclopediaEvolutions")]
+    partial class UpdateEncyclopediaEvolutions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2848,9 +2851,6 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         .HasColumnType("smallint")
                         .HasDefaultValue((short)0);
 
-                    b.Property<int?>("DeckBuffId")
-                        .HasColumnType("int");
-
                     b.Property<byte>("DigimonSlots")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint")
@@ -2865,9 +2865,7 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<bool>("InitialPacketSentOnceSent")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                        .HasColumnType("bit");
 
                     b.Property<byte>("Level")
                         .ValueGeneratedOnAdd()
@@ -3068,7 +3066,8 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
 
                     b.HasIndex("CharacterEncyclopediaId");
 
-                    b.HasIndex("DigimonBaseType");
+                    b.HasIndex("DigimonBaseType")
+                        .IsUnique();
 
                     b.ToTable("EncyclopediaEvolutions", "Character");
                 });
@@ -3610,7 +3609,7 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         new
                         {
                             Id = 1L,
-                            CreatedAt = new DateTime(2024, 10, 26, 6, 15, 27, 916, DateTimeKind.Local).AddTicks(7852),
+                            CreatedAt = new DateTime(2024, 10, 24, 2, 35, 42, 558, DateTimeKind.Local).AddTicks(6826),
                             Hash = "pMgM+NOH0Z+RwR9F1iFVOOwKrW1iDaifx4jWDnH1Dbo="
                         });
                 });
@@ -5387,10 +5386,10 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         {
                             Id = 1L,
                             Active = true,
-                            CreatedAt = new DateTime(2024, 10, 26, 6, 15, 27, 922, DateTimeKind.Local).AddTicks(2598),
+                            CreatedAt = new DateTime(2024, 10, 24, 2, 35, 42, 567, DateTimeKind.Local).AddTicks(879),
                             Interval = 1,
                             Name = "Daily Quests",
-                            NextRunTime = new DateTime(2024, 10, 27, 0, 0, 0, 0, DateTimeKind.Local),
+                            NextRunTime = new DateTime(2024, 10, 25, 0, 0, 0, 0, DateTimeKind.Local),
                             Type = 1
                         });
                 });
@@ -6070,9 +6069,9 @@ namespace DigitalWorldOnline.Infraestructure.Migrations
                         .IsRequired();
 
                     b.HasOne("DigitalWorldOnline.Commons.DTOs.Assets.DigimonBaseInfoAssetDTO", "BaseInfo")
-                        .WithMany()
-                        .HasForeignKey("DigimonBaseType")
-                        .HasPrincipalKey("Type")
+                        .WithOne()
+                        .HasForeignKey("DigitalWorldOnline.Commons.DTOs.Character.CharacterEncyclopediaEvolutionsDTO", "DigimonBaseType")
+                        .HasPrincipalKey("DigitalWorldOnline.Commons.DTOs.Assets.DigimonBaseInfoAssetDTO", "Type")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -490,7 +490,7 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                     _context.SaveChanges();
                 }
 
-                 
+
                 // Atualiza ou adiciona os buffs em dto com base em buffList
                 foreach (var buff in buffList.Buffs)
                 {
@@ -516,7 +516,7 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                     }
                 }
 
-             
+
 
             }
         }
@@ -1229,6 +1229,22 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
 
             return;
         }
+        public async Task UpdateCharacterDeckbuffAsync(CharacterModel character)
+        {
+            var dto = await _context.Character
+                .AsNoTracking()
+                 .FirstOrDefaultAsync(x => x.Id == character.Id);
+
+            if (dto != null)
+            {
+                dto.DeckBuffId = character.DeckBuffId;
+
+                _context.Update(dto);
+                _context.SaveChanges();
+            }
+
+            return;
+        }
 
         public async Task UpdateTamerTimeRewardAsync(TimeRewardModel timeRewardModel)
         {
@@ -1254,7 +1270,7 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == points.Id);
 
-            if(dto != null)
+            if (dto != null)
             {
                 dto.InsertDate = points.InsertDate;
                 dto.Points = points.Points;
@@ -1263,7 +1279,7 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
             }
         }
 
-        public async Task<CharacterEncyclopediaDTO> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia)
+        public async Task<CharacterEncyclopediaModel> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia)
         {
             var tamerDto = await _context.Character
                 .AsNoTracking()
@@ -1275,14 +1291,22 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
 
             if (tamerDto != null)
             {
-                tamerDto.Encyclopedia.Add(dto);
+                try
+                {
+                    tamerDto.Encyclopedia.Add(dto);
 
-                _context.Update(tamerDto);
+                    _context.Update(tamerDto);
 
-                _context.SaveChanges();
+                    _context.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }
+
             }
 
-            return dto;
+            return _mapper.Map<CharacterEncyclopediaModel>(dto);
         }
 
         public async Task UpdateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia)
@@ -1291,12 +1315,35 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == characterEncyclopedia.Id);
 
-            if(dto != null)
+            if (dto != null)
             {
-                dto.CreateDate = characterEncyclopedia.CreateDate;
+                dto.Level = characterEncyclopedia.Level;
+                dto.Size = characterEncyclopedia.Size;
+                dto.EnchantAT = characterEncyclopedia.EnchantAT;
+                dto.EnchantBL = characterEncyclopedia.EnchantBL;
+                dto.EnchantCT = characterEncyclopedia.EnchantCT;
+                dto.EnchantEV = characterEncyclopedia.EnchantEV;
+                dto.EnchantHP = characterEncyclopedia.EnchantHP;
                 dto.IsRewardAllowed = characterEncyclopedia.IsRewardAllowed;
                 dto.IsRewardReceived = characterEncyclopedia.IsRewardReceived;
-                _context.CharacterEncyclopedia.Update(dto);
+                dto.CreateDate = DateTime.Now;
+                dto.Evolutions = _mapper.Map<List<CharacterEncyclopediaEvolutionsDTO>>(characterEncyclopedia.Evolutions);
+                _context.Update(dto);
+                _context.SaveChanges();
+            }
+        }
+
+        public async Task UpdateCharacterEncyclopediaEvolutionsAsync(CharacterEncyclopediaEvolutionsModel characterEncyclopediaEvolution)
+        {
+            var dto = await _context.CharacterEncyclopediaEvolutions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == characterEncyclopediaEvolution.Id);
+
+            if (dto != null)
+            {
+                dto.IsUnlocked = characterEncyclopediaEvolution.IsUnlocked;
+                dto.CreateDate = DateTime.Now;
+                _context.CharacterEncyclopediaEvolutions.Update(dto);
                 _context.SaveChanges();
             }
         }

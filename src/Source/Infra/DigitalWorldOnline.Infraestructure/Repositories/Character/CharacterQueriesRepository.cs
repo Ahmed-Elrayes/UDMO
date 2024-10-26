@@ -88,6 +88,10 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                 .Include(x => x.DailyPoints)
                 .Include(x => x.Friends)
                 .Include(x => x.Foes)
+                .Include(x => x.Encyclopedia)
+                    .ThenInclude(y => y.Evolutions)
+                .Include(x => x.Encyclopedia)
+                    .ThenInclude(y => y.EvolutionAsset)
                 .Include(x => x.ConsignedShop)
                 .ThenInclude(y => y.Location)
                 .Include(x => x.Progress)
@@ -119,8 +123,6 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
                 .Include(x => x.Digimons)
                     .ThenInclude(y => y.Evolutions)
                         .ThenInclude(z => z.Skills)
-                .Include(x => x.Encyclopedia)
-                    .ThenInclude(y => y.Evolutions)
                 .SingleOrDefaultAsync(x => x.Id == characterId);
 
             if (character != null)
@@ -202,5 +204,20 @@ namespace DigitalWorldOnline.Infraestructure.Repositories.Character
 
             return (string.Empty, string.Empty);
         }
+
+        public async Task<IList<CharacterEncyclopediaDTO>> GetCharacterEncyclopediaByCharacterIdAsync(long characterId)
+        {
+            //TODO: verificar necessidade de melhoria no tempo de resposta
+            var characters = await _context.CharacterEncyclopedia
+                .AsSplitQuery()
+                .AsNoTracking()
+                .Include(x => x.Evolutions)
+                .Include(x => x.EvolutionAsset)
+                .Where(x => x.CharacterId == characterId)
+                .ToListAsync();
+
+            return characters;
+        }
+
     }
 }

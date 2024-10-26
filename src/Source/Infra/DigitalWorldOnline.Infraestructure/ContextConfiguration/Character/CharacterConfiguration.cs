@@ -141,6 +141,16 @@ namespace DigitalWorldOnline.Infraestructure.ContextConfiguration.Character
                 .IsRequired();
 
             builder
+                .Property(x => x.DeckBuffId)
+                .HasColumnType("int");
+
+            builder
+                .Property(x => x.InitialPacketSentOnceSent)
+                .HasColumnType("bit")
+                .HasDefaultValue(0)
+                .IsRequired();
+
+            builder
                 .HasMany(c => c.ItemList)
                 .WithOne()
                 .HasForeignKey("CharacterId")

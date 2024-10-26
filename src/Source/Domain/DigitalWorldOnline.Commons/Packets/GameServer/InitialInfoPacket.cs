@@ -318,7 +318,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                 WriteByte((byte)cashBuffs.Count);
                 foreach (var buff in cashBuffs)
                 {
-                  
+
                     if (buff.RemainingMinutes > 0)
                     {
                         WriteInt(buff.SkillId);
@@ -351,7 +351,16 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             //WriteInt(60);//Duração block chat em segundos 
             //Obs.: Passar 0 posteriormente não remove o valor da duração passado anteriormente.
             WriteByte(0); //master match (1 = equipe A, 2 = equipe B)
-            WriteInt(0); //encyclopedia id (apenas 1 ativo por vez - 1021 = op)
+
+            // TODO: Encyclopedia deckbuff the most OP is 1021, this is the DeckGroupID in xml
+            if (character.DeckBuffId == null)
+            {
+                WriteByte(0);
+            }
+            else
+            {
+                WriteInt((int)character.DeckBuffId);
+            }
             WriteByte(0); //Megaphone ban (1 = block)
 
             WriteInt(0);

@@ -462,7 +462,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
                     //SocketAttribute(AccessoryStatusTypeEnum.MS, _baseMs) +
                     BuffAttribute(_baseMs, SkillCodeApplyAttributeEnum.MS, SkillCodeApplyAttributeEnum.MovementSpeedComparisonCorrectionBuff, SkillCodeApplyAttributeEnum.MovementSpeedIncrease);
 
-                return Math.Min(calculatedMS, 3500); // Max value of MS = 3500
+                return Math.Min(calculatedMS, 15000); // Max value of MS = 3500
             }
         }
 
@@ -1303,6 +1303,12 @@ namespace DigitalWorldOnline.Commons.Models.Character
         /// </summary>
         /// <param name="newTitleId">The new title id</param>
         public void UpdateCurrentTitle(short newTitleId) => CurrentTitle = newTitleId;
+
+        /// <summary>
+        /// Updates the current tamer deck buff id.
+        /// </summary>
+        /// <param name="deckBuffId">Set the new deck buff</param>
+        public void UpdateDeckBuffId(int? deckBuffId) => DeckBuffId = deckBuffId;
 
         /// <summary>
         /// Updates the current tamer title.

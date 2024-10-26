@@ -10,6 +10,20 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
 
         public long DigimonEvolutionId { get; set; }
 
+        public short Level { get; set; }
+
+        public short Size { get; set; }
+
+        public short EnchantAT { get; set; }
+
+        public short EnchantBL { get; set; }
+
+        public short EnchantCT { get; set; }
+
+        public short EnchantEV { get; set; }
+
+        public short EnchantHP { get; set; }
+
         public bool IsRewardAllowed { get; set; }
 
         public bool IsRewardReceived { get; set; }

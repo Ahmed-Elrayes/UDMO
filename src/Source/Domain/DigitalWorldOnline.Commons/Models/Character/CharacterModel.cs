@@ -108,6 +108,11 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public short CurrentTitle { get; private set; }
 
         /// <summary>
+        /// Current deck buff id
+        /// </summary>
+        public int? DeckBuffId { get; private set; }
+
+        /// <summary>
         /// Current display InitialPacketSentOnceSent.
         /// </summary>
         public bool InitialPacketSentOnceSent { get; private set; }
@@ -386,6 +391,5 @@ namespace DigitalWorldOnline.Commons.Models.Character
             TradeInventory = null;
 
         }
-    
     }
 }

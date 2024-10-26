@@ -701,6 +701,21 @@ namespace DigitalWorldOnline.Commons.Enums.PacketProcessor
         EncyclopediaLoad = 3234,
 
         /// <summary>
+        /// Receive encyclopedia reward.
+        /// </summary>
+        EncyclopediaGetReward = 3235,
+
+        /// <summary>
+        /// Use encyclopedia Deck buff.
+        /// </summary>
+        EncyclopediaDeckBuffUse = 3236,
+
+        /// <summary>
+        /// Get encyclopedia Deck buff effetct.
+        /// </summary>
+        EncyclopediaDeckBuffEffect = 3237,
+
+        /// <summary>
         /// Return an item.
         /// </summary>
         ItemReturn = 3923,

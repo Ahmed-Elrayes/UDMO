@@ -7,6 +7,7 @@ using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.Items;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.Infraestructure.Migrations;
 using MediatR;
 using Serilog;
 
@@ -91,7 +92,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 }
 
 
-            
+
             }
             else
             {
@@ -155,6 +156,22 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 }
 
                 evolution.Unlock();
+                var encyclopedia = client.Tamer.Encyclopedia.First(x => x.DigimonEvolutionId == evoInfo.EvolutionId);
+                _logger.Information($"Encyclopedia is: {encyclopedia.Id}, evolution id: {evoInfo.EvolutionId}, count: {client.Tamer.Encyclopedia.Count}");
+                _logger.Information($"Encyclopedia is: {client.Tamer.Encyclopedia.Last()?.Id}");
+                
+                if (encyclopedia != null)
+                {
+                    var encyclopediaEvolution = encyclopedia.Evolutions.First(x => x.DigimonBaseType == evolution.Type);
+                    encyclopediaEvolution.Unlock();
+                    await _sender.Send(new UpdateCharacterEncyclopediaEvolutionsCommand(encyclopediaEvolution));
+                    int LockedEncyclopediaCount = encyclopedia.Evolutions.Count(x => x.IsUnlocked == false);
+                    if(LockedEncyclopediaCount <= 0)
+                    {
+                        encyclopedia.SetRewardAllowed();
+                        await _sender.Send(new UpdateCharacterEncyclopediaCommand(encyclopedia));
+                    }
+                }
 
                 if (Rare)
                     _mapServer.BroadcastForChannel(client.Tamer.Channel, new NeonMessagePacket(NeonMessageTypeEnum.Evolution, client.Tamer.Name, ItemId, client.Tamer.Partner.CurrentType).Serialize());

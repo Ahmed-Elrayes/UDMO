@@ -10,6 +10,8 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
 
         public int DigimonBaseType { get; set; }
 
+        public byte SlotLevel { get; set; }
+
         public bool IsUnlocked { get; set; }
 
         public DateTime CreateDate { get; set; }

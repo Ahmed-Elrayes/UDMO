@@ -20,6 +20,20 @@ namespace DigitalWorldOnline.Commons.Models.Character
         /// </summary>
         public long DigimonEvolutionId { get; private set; }
 
+        public short Level { get; private set; }
+
+        public short Size { get; private set; }
+
+        public short EnchantAT { get; private set; }
+
+        public short EnchantBL { get; private set; }
+
+        public short EnchantCT { get; private set; }
+
+        public short EnchantEV { get; private set; }
+
+        public short EnchantHP { get; private set; }
+
         /// <summary>
         /// Current display IsRewardAllowed.
         /// </summary>
@@ -43,7 +57,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
         /// <summary>
         /// evolution assets.
         /// </summary>
-        public EvolutionAssetModel Evolution { get; private set; }
+        public EvolutionAssetModel EvolutionAsset { get; private set; }
 
         /// <summary>
         /// Character encyclopedia evolutions
@@ -52,9 +66,12 @@ namespace DigitalWorldOnline.Commons.Models.Character
 
         public CharacterEncyclopediaModel()
         {
-
             Evolutions = new List<CharacterEncyclopediaEvolutionsModel>();
         }
-    
+
+        public long GetId()
+        {
+            return Id;
+        }
     }
 }

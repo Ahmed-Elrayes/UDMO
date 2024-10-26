@@ -24,6 +24,11 @@ namespace DigitalWorldOnline.Infraestructure.ContextConfiguration.Character
                 .IsRequired();
 
             builder
+                .Property(x => x.SlotLevel)
+                .HasColumnType("int")
+                .IsRequired();
+
+            builder
                 .Property(x => x.IsUnlocked)
                 .HasColumnType("bit")
                 .HasDefaultValue(false)
@@ -44,9 +49,9 @@ namespace DigitalWorldOnline.Infraestructure.ContextConfiguration.Character
 
             builder
                 .HasOne(x => x.BaseInfo)
-                .WithOne()
-                .HasForeignKey<CharacterEncyclopediaEvolutionsDTO>(x => x.DigimonBaseType)
-                .HasPrincipalKey<DigimonBaseInfoAssetDTO>(x => x.Type)
+                .WithMany()
+                .HasForeignKey(x => x.DigimonBaseType)
+                .HasPrincipalKey(x => x.Type)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

@@ -216,6 +216,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 _dungeonServer.RemoveClient(client);
                 _mapServer.RemoveClient(client);
 
+
                 client.SetGameQuit(false);
 
                 client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],

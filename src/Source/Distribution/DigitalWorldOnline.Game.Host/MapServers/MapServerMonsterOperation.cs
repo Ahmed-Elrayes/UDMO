@@ -213,7 +213,7 @@ namespace DigitalWorldOnline.GameHost
                         {
                             mob.SetNextWalkTime(UtilitiesFunctions.RandomInt(7, 14));
                             mob.SetAgressiveCheckTime(5);
-                            mob.SetRespawn(); 
+                            mob.SetRespawn();
 
                             if (mob.Class == 8)
                             {
@@ -223,7 +223,7 @@ namespace DigitalWorldOnline.GameHost
                         }
                         else
                         {
-                            map.AttackNearbyTamer(mob, mob.TamersViewing, _assets.NpcColiseum); // comment ?
+                            // map.AttackNearbyTamer(mob, mob.TamersViewing, _assets.NpcColiseum); // comment ?
                         }
                     }
                     break;
@@ -344,8 +344,11 @@ namespace DigitalWorldOnline.GameHost
                         {
                             foreach (var targetTamer in mob.TargetTamers)
                             {
-                                targetTamer.StopBattle();
-                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
+                                if (targetTamer.TargetMobs.Count <= 1)
+                                {
+                                    targetTamer.StopBattle();
+                                    map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
+                                }
                             }
                         }
                     }
@@ -698,7 +701,7 @@ namespace DigitalWorldOnline.GameHost
                 var bonusDigimonExp = (long)(basePartnerExp * playerMultiplier);    // Digimon Booster Exp
 
                 // ------------------------------------------------------------------------------------------------------
-                
+
                 var tamerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level, mob.Level, baseTamerExp) * expBonusMultiplier);
 
                 if (CalculateExperience(tamer.Partner.Level, mob.Level, baseTamerExp) == 0)
@@ -924,7 +927,7 @@ namespace DigitalWorldOnline.GameHost
                 foreach (var partyMemberId in party.Members.Values.Select(x => x.Id))
                 {
                     var partyMemberClient = map.Clients.FirstOrDefault(x => x.TamerId == partyMemberId);
-                    
+
                     if (partyMemberClient == null || partyMemberId == targetClient.TamerId)
                         continue;
 
@@ -979,7 +982,7 @@ namespace DigitalWorldOnline.GameHost
                 }
             }
         }
-        
+
         private void DropReward(GameMap map, MobConfigModel mob)
         {
             var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == mob.TargetTamer?.Id);
@@ -1895,7 +1898,7 @@ namespace DigitalWorldOnline.GameHost
 
             partyIdList.Clear();
         }
-        
+
         private void DropReward(GameMap map, SummonMobModel mob)
         {
             var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == mob.TargetTamer?.Id);

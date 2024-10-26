@@ -50,7 +50,7 @@ namespace DigitalWorldOnline.GameHost
 
                 if (tamer.TargetMobs.Count > 0)
                     PartnerAutoAttackMob(tamer);
-                
+
                 if (tamer.TargetSummonMobs.Count > 0)
                     PartnerAutoAttackSummon(tamer);
 
@@ -157,7 +157,7 @@ namespace DigitalWorldOnline.GameHost
                 {
                     tamer.SetLastExpiredItemsCheck();
 
-                    foreach (var item in tamer.Inventory.EquippedItems)
+                    tamer.Inventory.EquippedItems.ForEach(item =>
                     {
                         if (item.ItemInfo != null && item.IsTemporary && item.Expired)
                         {
@@ -177,9 +177,9 @@ namespace DigitalWorldOnline.GameHost
                                 tamer.Inventory.RemoveOrReduceItem(item, item.Amount);
                             }
                         }
-                    }
+                    });
 
-                    foreach (var item in tamer.Warehouse.EquippedItems)
+                    tamer.Warehouse.EquippedItems.ForEach(item =>
                     {
                         if (item.ItemInfo != null && item.IsTemporary && item.Expired)
                         {
@@ -197,9 +197,10 @@ namespace DigitalWorldOnline.GameHost
                                 tamer.Warehouse.RemoveOrReduceItem(item, item.Amount);
                             }
                         }
-                    }
 
-                    foreach (var item in tamer.AccountWarehouse.EquippedItems)
+                    });
+
+                    tamer.AccountWarehouse?.EquippedItems.ForEach(item =>
                     {
                         if (item.ItemInfo != null && item.IsTemporary && item.Expired)
                         {
@@ -217,9 +218,10 @@ namespace DigitalWorldOnline.GameHost
                                 tamer.AccountWarehouse.RemoveOrReduceItem(item, item.Amount);
                             }
                         }
-                    }
 
-                    foreach (var item in tamer.Equipment.EquippedItems)
+                    });
+
+                    tamer.Equipment.EquippedItems.ForEach(item =>
                     {
                         if (item.ItemInfo != null && item.IsTemporary && item.Expired)
                         {
@@ -237,9 +239,10 @@ namespace DigitalWorldOnline.GameHost
                                 tamer.Equipment.RemoveOrReduceItem(item, item.Amount);
                             }
                         }
-                    }
 
-                    foreach (var item in tamer.ChipSets.EquippedItems)
+                    });
+
+                    tamer.ChipSets.EquippedItems.ForEach(item =>
                     {
                         if (item.ItemInfo != null && item.IsTemporary && item.Expired)
                         {
@@ -257,11 +260,19 @@ namespace DigitalWorldOnline.GameHost
                                 tamer.ChipSets.RemoveOrReduceItem(item, item.Amount);
                             }
                         }
-                    }
+
+                    });
 
                     _sender.Send(new UpdateItemsCommand(client.Tamer.Inventory));
                     _sender.Send(new UpdateItemsCommand(client.Tamer.Warehouse));
-                    _sender.Send(new UpdateItemsCommand(client.Tamer.AccountWarehouse));
+                    if (client.Tamer.AccountWarehouse != null)
+                    {
+                        _sender.Send(new UpdateItemsCommand(client.Tamer.AccountWarehouse));
+                    }
+                    else
+                    {
+                        _logger.Information($"Account warehouse for tamerId: {client.TamerId} with name: {client.Tamer.Name} is null");
+                    }
                     _sender.Send(new UpdateItemsCommand(client.Tamer.Equipment));
                     _sender.Send(new UpdateItemsCommand(client.Tamer.ChipSets));
                 }
@@ -465,7 +476,7 @@ namespace DigitalWorldOnline.GameHost
             mobsToAdd.ForEach(id => tamer.MobsInView.Add(id));
             mobsToRemove.ForEach(id => tamer.MobsInView.Remove(id));
         }
-        
+
         /// <summary>
         /// Updates the current partners handler values;
         /// </summary>
@@ -1016,7 +1027,7 @@ namespace DigitalWorldOnline.GameHost
 
             return partnerResult;
         }
-        
+
         private ReceiveExpResult ReceivePartnerExp(DigimonModel partner, SummonMobModel targetMob, long partnerExpToReceive)
         {
             var partnerResult = _expManager.ReceiveDigimonExperience(partnerExpToReceive, partner);
@@ -1311,7 +1322,7 @@ namespace DigitalWorldOnline.GameHost
                         await _sender.Send(new UpdateTamerAttendanceTimeRewardCommand(client.Tamer.TimeReward));
                         client.Tamer.TimeReward.UpdateCounter = 0;
                     }
-                    
+
                     client.Send(new TimeRewardPacket(client.Tamer.TimeReward));
                 }
 
@@ -1353,7 +1364,7 @@ namespace DigitalWorldOnline.GameHost
                         });
                     }
                     break;
-                    
+
                 case TimeRewardIndexEnum.Second:
                     {
                         var GetPrizes = _assets.TimeRewardAssets
@@ -1377,7 +1388,7 @@ namespace DigitalWorldOnline.GameHost
                         });
                     }
                     break;
-                
+
                 case TimeRewardIndexEnum.Third:
                     {
                         var GetPrizes = _assets.TimeRewardAssets
@@ -1401,7 +1412,7 @@ namespace DigitalWorldOnline.GameHost
                         });
                     }
                     break;
-                
+
                 case TimeRewardIndexEnum.Fourth:
                     {
                         var GetPrizes = _assets.TimeRewardAssets
@@ -1425,7 +1436,7 @@ namespace DigitalWorldOnline.GameHost
                         });
                     }
                     break;
-                
+
                 default:
                     break;
             }
@@ -1467,6 +1478,6 @@ namespace DigitalWorldOnline.GameHost
             }
 
         }
-    
+
     }
 }

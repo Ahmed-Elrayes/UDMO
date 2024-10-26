@@ -20,6 +20,11 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public int DigimonBaseType { get; private set; }
 
         /// <summary>
+        /// Required slot level to unlock.
+        /// </summary>
+        public byte SlotLevel { get; private set; }
+
+        /// <summary>
         /// Current display isUnlocked.
         /// </summary>
         public bool IsUnlocked { get; private set; }

@@ -1,4 +1,5 @@
-﻿using DigitalWorldOnline.Commons.Entities;
+﻿using DigitalWorldOnline.Application.Separar.Commands.Update;
+using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
@@ -10,14 +11,14 @@ using Serilog;
 
 namespace DigitalWorldOnline.Game.PacketProcessors
 {
-    public class EncyclopediaLoadPacketProcessor : IGamePacketProcessor
+    public class EncyclopediaDeckBuffUsePacketProcessor : IGamePacketProcessor
     {
-        public GameServerPacketEnum Type => GameServerPacketEnum.EncyclopediaLoad;
+        public GameServerPacketEnum Type => GameServerPacketEnum.EncyclopediaDeckBuffUse;
 
         private readonly ISender _sender;
         private readonly ILogger _logger;
 
-        public EncyclopediaLoadPacketProcessor(ISender sender,ILogger logger)
+        public EncyclopediaDeckBuffUsePacketProcessor(ISender sender, ILogger logger)
         {
             _sender = sender;
             _logger = logger;
@@ -27,13 +28,19 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         {
             var packet = new GamePacketReader(packetData);
 
+            int deckBuffId = packet.ReadInt();
+
             var encyclopedia = client.Tamer.Encyclopedia;
 
             _logger.Information($"Getting encyclopedia data");
 
-            _logger.Information($"Encyclopedia's count: {encyclopedia.Count}");
+            var character = client.Tamer;
 
-            client.Send(new EncyclopediaLoadPacket(encyclopedia));
+            character.UpdateDeckBuffId(deckBuffId == 0 ? null : deckBuffId);
+
+            await _sender.Send(new UpdateCharacterDeckBuffCommand(character));
+
+            client.Send(new EncyclopediaDeckBuffUsePacket(character));
         }
     }
 }

@@ -8,6 +8,11 @@
         public long Id { get; private set; }
 
         /// <summary>
+        /// Unique sequential identifier.
+        /// </summary>
+        public long EvolutionId { get; private set; }
+
+        /// <summary>
         /// Base type for the evolution.
         /// </summary>
         public int Type { get; private set; }

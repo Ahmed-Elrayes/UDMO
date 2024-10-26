@@ -29,6 +29,7 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
         public int XGauge { get; set; }
         public short XCrystals { get; set; }
         public short CurrentTitle { get; set; }
+        public int? DeckBuffId { get; set; }
         public bool InitialPacketSentOnceSent { get; set; }
         public DateTime CreateDate { get; set; }
 

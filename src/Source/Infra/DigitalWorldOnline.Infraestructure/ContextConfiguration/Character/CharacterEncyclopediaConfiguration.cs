@@ -23,6 +23,47 @@ namespace DigitalWorldOnline.Infraestructure.ContextConfiguration.Character
                 .IsRequired();
 
             builder
+                .Property(x => x.Level)
+                .HasColumnType("int")
+                .HasDefaultValue(1)
+                .IsRequired();
+
+            builder
+                .Property(x => x.Size)
+                .HasColumnType("int")
+                .IsRequired();
+
+            builder
+                .Property(x => x.EnchantAT)
+                .HasColumnType("int")
+                .HasDefaultValue(0)
+                .IsRequired();
+
+            builder
+                .Property(x => x.EnchantBL)
+                .HasColumnType("int")
+                .HasDefaultValue(0)
+                .IsRequired();
+
+            builder
+                .Property(x => x.EnchantCT)
+                .HasColumnType("int")
+                .HasDefaultValue(0)
+                .IsRequired();
+
+            builder
+                .Property(x => x.EnchantEV)
+                .HasColumnType("int")
+                .HasDefaultValue(0)
+                .IsRequired();
+
+            builder
+                .Property(x => x.EnchantHP)
+                .HasColumnType("int")
+                .HasDefaultValue(0)
+                .IsRequired();
+
+            builder
                 .Property(x => x.IsRewardAllowed)
                 .HasColumnType("bit")
                 .HasDefaultValue(false)

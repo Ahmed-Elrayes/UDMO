@@ -1,14 +1,15 @@
 ﻿using DigitalWorldOnline.Commons.DTOs.Character;
 using DigitalWorldOnline.Commons.Models.Character;
+using DigitalWorldOnline.Commons.Models.Events;
 using MediatR;
 
-namespace DigitalWorldOnline.Application.Separar.Commands.Create
+namespace DigitalWorldOnline.Application.Separar.Commands.Update
 {
-    public class CreateCharacterEncyclopediaCommand : IRequest<CharacterEncyclopediaModel>
+    public class UpdateCharacterEncyclopediaCommand : IRequest
     {
         public CharacterEncyclopediaModel CharacterEncyclopedia { get; set; }
 
-        public CreateCharacterEncyclopediaCommand(CharacterEncyclopediaModel characterEncyclopedia)
+        public UpdateCharacterEncyclopediaCommand(CharacterEncyclopediaModel characterEncyclopedia)
         {
             CharacterEncyclopedia = characterEncyclopedia;
         }

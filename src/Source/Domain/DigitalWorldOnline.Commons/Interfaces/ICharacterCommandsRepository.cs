@@ -126,8 +126,12 @@ namespace DigitalWorldOnline.Commons.Interfaces
 
         Task UpdateCharacterArenaDailyPointsAsync(CharacterArenaDailyPointsModel points);
 
-        Task<CharacterEncyclopediaDTO> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
+        Task UpdateCharacterDeckbuffAsync(CharacterModel character);
+
+        Task<CharacterEncyclopediaModel> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
 
         Task UpdateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
+
+        Task UpdateCharacterEncyclopediaEvolutionsAsync(CharacterEncyclopediaEvolutionsModel characterEncyclopedia);
     }
 }

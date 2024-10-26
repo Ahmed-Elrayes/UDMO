@@ -19,5 +19,6 @@ namespace DigitalWorldOnline.Commons.Interfaces
 
         Task<DigimonDTO?> GetDigimonByIdAsync(long digimonId);
         Task<(string TamerName, string GuildName)> GetCharacterNameAndGuildByIdQAsync(long characterId);
+        Task<IList<CharacterEncyclopediaDTO>> GetCharacterEncyclopediaByCharacterIdAsync(long characterId);
     }
 }
