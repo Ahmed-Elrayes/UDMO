@@ -2,6 +2,7 @@
 {
     public enum TamerShopActionEnum
     {
+        NoPartFound = 0,
         TamerShopRequest = 1,
         TamerShopWithItensCloseRequest = 2,
         TamerShopWithoutItensCloseRequest = 3,

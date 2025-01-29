@@ -14,5 +14,11 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
         //References
         public long CharacterId { get; private set; }
         public CharacterDTO Character { get; private set; }
+        public CharacterDTO Friend { get; private set; }
+        
+        public void SetConnected(bool connected)
+        {
+            Connected = connected;
+        }
     }
 }

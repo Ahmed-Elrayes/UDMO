@@ -10,6 +10,7 @@ namespace DigitalWorldOnline.Commons.ViewModel.Summons
         public long Id { get; set; }
 
         public ItemAssetViewModel ItemInfo { get; set; }
+        public MapConfigViewModel MapConfig { get; set; }
 
         /// <summary>
         /// Client reference for item identifier.

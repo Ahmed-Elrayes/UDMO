@@ -217,7 +217,7 @@ namespace DigitalWorldOnline.Commons.Entities
         {
             if (buffer == null || buffer.Length < 6)
             {
-                ArgumentNullException? nullException = new(nameof(buffer), NullObjectExceptionMessage);
+                ArgumentNullException nullException = new(nameof(buffer), NullObjectExceptionMessage);
                 throw nullException;
             }
         }
@@ -226,7 +226,7 @@ namespace DigitalWorldOnline.Commons.Entities
         {
             if (client == null)
             {
-                ArgumentNullException? nullException = new(nameof(client), NullObjectExceptionMessage);
+                ArgumentNullException nullException = new(nameof(client), NullObjectExceptionMessage);
                 throw nullException;
             }
         }

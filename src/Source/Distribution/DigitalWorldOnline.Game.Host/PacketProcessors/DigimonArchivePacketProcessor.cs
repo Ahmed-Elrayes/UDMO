@@ -34,6 +34,15 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         public async Task Process(GameClient client, byte[] packetData)
         {
+            var packet = new GamePacketReader(packetData);
+            
+            var isVip = packet.ReadByte();
+            var nInvenIdx = packet.ReadInt();
+            var nNpcId = packet.ReadInt();
+            var nNpcType = packet.ReadByte();
+
+            _logger.Debug($"isVip: {isVip} | nInvenIdx: {nInvenIdx} | nNpcId: {nNpcId} | nNpcType: {nNpcType}");
+
             foreach (var digimonArchive in client.Tamer.DigimonArchive.DigimonArchives.Where(x => x.DigimonId > 0))
             {
                 digimonArchive.SetDigimonInfo(_mapper.Map<DigimonModel>(

@@ -6,7 +6,7 @@
 
         public GameClientDataEvent(GameClient client, byte[] data) : base(client)
         {
-            Data = data ?? new byte[0];
+            Data = data ?? Array.Empty<byte>();
         }
     }
 }

@@ -34,8 +34,17 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
 
                 WriteInt(member.Value.Location.MapId);
                 WriteInt(member.Value.Channel);
-                WriteInt(member.Value.GeneralHandler);
-                WriteInt(member.Value.Partner.GeneralHandler);
+                if (party[memberId].Value.Channel == member.Value.Channel &&
+                    party[memberId].Value.Location.MapId == member.Value.Location.MapId)
+                {
+                    WriteInt(member.Value.GeneralHandler);
+                    WriteInt(member.Value.Partner.GeneralHandler);
+                }
+                else
+                {
+                    WriteInt(0);
+                    WriteInt(0);
+                }
             }
 
             WriteInt(-1);

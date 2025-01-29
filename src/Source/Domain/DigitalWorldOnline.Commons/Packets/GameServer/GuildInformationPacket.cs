@@ -31,7 +31,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             var memberList = guild.Members
                 .OrderByDescending(x => x.CharacterInfo.Location.MapId)
                 //.OrderByDescending(x => x.CharacterInfo.Channel)
-                .OrderBy(x => x.Authority.GetHashCode());
+                .ThenBy(x => x.Authority.GetHashCode());
 
             foreach (var member in memberList)
             {
@@ -41,13 +41,15 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                 WriteInt(member.Contribution);
                 WriteByte(member.CharacterInfo.Level);
 
-                if (member.CharacterInfo.State == CharacterStateEnum.Connected || member.CharacterInfo.State == CharacterStateEnum.Ready)
+                if (member.CharacterInfo.State is CharacterStateEnum.Connected or CharacterStateEnum.Ready)
                 {
                     WriteShort(member.CharacterInfo.Location.MapId);
                     WriteByte(member.CharacterInfo.Channel);
                 }
                 else
+                {
                     WriteShort(0);
+                }
             }
 
             WriteByte(0);

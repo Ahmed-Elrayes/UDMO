@@ -78,7 +78,7 @@ namespace DigitalWorldOnline.Character
                         _logger.Debug("Requesting Characters");
                         var accountId = packet.ReadUInt();
 
-                        _logger.Debug($"Getting account {accountId} character list...");
+                        _logger.Information($"Getting account {accountId} character list...");
                         var characters = _mapper.Map<List<CharacterModel>>(await _sender.Send(new CharactersByAccountIdQuery(accountId)));
 
                         characters.ForEach(character => 
@@ -169,7 +169,7 @@ namespace DigitalWorldOnline.Character
                         _logger.Debug("Getting parameters...");
                         var tamerName = packet.ReadString();
 
-                        _logger.Debug($"{tamerName}");
+                        _logger.Debug($"Account: {client.AccountId} - {tamerName}");
 
                         _logger.Debug("Searching account...");
                         var account = _mapper.Map<AccountModel>(await _sender.Send(new AccountByIdQuery(client.AccountId)));
@@ -215,7 +215,6 @@ namespace DigitalWorldOnline.Character
 
                 case CharacterServerPacketEnum.GetCharacterPosition:
                     {
-                        _logger.Debug($"Reading parameters...");
                         var position = packet.ReadByte();
 
                         _logger.Debug($"Searching character...");

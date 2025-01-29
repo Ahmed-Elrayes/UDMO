@@ -11,6 +11,7 @@ using DigitalWorldOnline.Commons.Models.Mechanics;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -22,6 +23,8 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
         private readonly IMapper _mapper;
@@ -29,12 +32,16 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public GuildMemberKickPacketProcessor(
             MapServer mapServer,
             DungeonsServer dungeonServer,
+            EventServer eventServer,
+            PvpServer pvpServer,
             ILogger logger,
             ISender sender,
             IMapper mapper)
         {
             _mapServer = mapServer;
             _dungeonServer = dungeonServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
             _mapper = mapper;
@@ -48,6 +55,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             _logger.Debug($"Searching character by name {targetName}...");
             var targetCharacter = _mapper.Map<CharacterModel>(await _sender.Send(new CharacterByNameQuery(targetName)));
+
             if (targetCharacter == null)
             {
                 _logger.Warning($"Character {targetName} not found.");
@@ -56,7 +64,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             }
 
             _logger.Debug($"Searching guild by character id {targetCharacter.Id}...");
-            var targetGuild = _mapper.Map<GuildModel>(await _sender.Send(new GuildByCharacterIdQuery(targetCharacter.Id)));
+            var targetGuild =
+                _mapper.Map<GuildModel>(await _sender.Send(new GuildByCharacterIdQuery(targetCharacter.Id)));
+
             if (targetGuild == null)
             {
                 _logger.Warning($"Character {targetName} does not belong to a guild.");
@@ -75,13 +85,16 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     }
                     else
                     {
-                        guildMember.SetCharacterInfo(_mapper.Map<CharacterModel>(await _sender.Send(new CharacterByIdQuery(guildMember.CharacterId))));
+                        guildMember.SetCharacterInfo(
+                            _mapper.Map<CharacterModel>(
+                                await _sender.Send(new CharacterByIdQuery(guildMember.CharacterId))));
                     }
                 }
             }
 
             var targetMember = targetGuild.FindMember(targetCharacter.Id);
-            var newEntry = targetGuild.AddHistoricEntry(GuildHistoricTypeEnum.MemberKick, targetGuild.Master, targetMember);
+            var newEntry =
+                targetGuild.AddHistoricEntry(GuildHistoricTypeEnum.MemberKick, targetGuild.Master, targetMember);
 
             foreach (var guildMember in targetGuild.Members)
             {
@@ -90,14 +103,26 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     new GuildHistoricPacket(targetGuild.Historic).Serialize());
 
                 _dungeonServer.BroadcastForUniqueTamer(guildMember.CharacterId,
-                   new GuildHistoricPacket(targetGuild.Historic).Serialize());
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize());
+
+                _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize());
+
+                _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize());
 
                 _logger.Debug($"Sending guild member kick packet for character {guildMember.CharacterId}...");
                 _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
                     new GuildMemberKickPacket(targetCharacter.Name).Serialize());
 
                 _dungeonServer.BroadcastForUniqueTamer(guildMember.CharacterId,
-                   new GuildMemberKickPacket(targetCharacter.Name).Serialize());
+                    new GuildMemberKickPacket(targetCharacter.Name).Serialize());
+
+                _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                    new GuildMemberKickPacket(targetCharacter.Name).Serialize());
+
+                _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                    new GuildMemberKickPacket(targetCharacter.Name).Serialize());
             }
 
             targetGuild.RemoveMember(targetCharacter.Id);

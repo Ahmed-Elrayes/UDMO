@@ -11,11 +11,13 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
         /// </summary>
         public MembershipPacket(DateTime membershipExpirationDate, int utcSeconds)
         {
-            var remainingSeconds = (membershipExpirationDate - DateTime.UtcNow).TotalSeconds;
+            var secondsUTC = (membershipExpirationDate - DateTime.UtcNow).TotalSeconds;
 
+            if (utcSeconds <= 0)
+                utcSeconds = 0;
+            
             Type(PacketNumber);
-            //WriteByte(Convert.ToByte(remainingSeconds > 0));
-            WriteByte(Convert.ToByte(utcSeconds > 0));
+            WriteByte(Convert.ToByte(secondsUTC > 0));
             WriteInt(utcSeconds);
         }
 

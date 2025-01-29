@@ -8,20 +8,19 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
         private const int PacketNumber = 3956;
 
         /// <summary>
-        /// Load the Cash Shop
+        /// Open Rare Machine
         /// </summary>
-        /// <param name="remainingSeconds">The membership remaining seconds (UTC).</param>
         public GotchaStartPacket(GotchaAssetModel Gotcha)
         {
             Type(PacketNumber);
             WriteInt(Gotcha.RareItems.Count);
 
-            //pop(recv.nRareItemCount);
             foreach (var rareItem in Gotcha.RareItems)
             {
                 WriteUInt((uint)rareItem.RareItem);
                 WriteUInt((uint)rareItem.RareItemCnt);
             }
+
             int totalQuanty = Gotcha.Items.Sum(item => item.Quanty);
             WriteInt(totalQuanty);
             WriteInt(100);

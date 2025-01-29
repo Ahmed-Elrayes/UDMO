@@ -1,4 +1,5 @@
-﻿using DigitalWorldOnline.Commons.Enums;
+﻿using DigitalWorldOnline.Commons.DTOs.Assets;
+using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.Character;
 using DigitalWorldOnline.Commons.DTOs.Digimon;
 using DigitalWorldOnline.Commons.DTOs.Events;
@@ -37,7 +38,10 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
         public List<ItemListDTO> ItemList { get; set; }
         public List<DigimonDTO> Digimons { get; set; }
         public List<CharacterFriendDTO> Friends { get; set; }
+        
+        public List<CharacterFriendDTO> Friended { get; set; }
         public List<CharacterFoeDTO> Foes { get; set; }
+        public List<CharacterFoeDTO> Foed { get; set; }
         public CharacterArenaPointsDTO Points { get; set; }
         public List<CharacterMapRegionDTO> MapRegions { get; set; }
         public CharacterBuffListDTO BuffList { get; set; }
@@ -55,5 +59,7 @@ namespace DigitalWorldOnline.Commons.DTOs.Character
         public List<CharacterTamerSkillDTO> ActiveSkill { get; set; }
         public GuildDTO? Guild { get; set; }
         public List<CharacterEncyclopediaDTO> Encyclopedia { get; set; }
+        
+        public DeckBuffAssetDTO? DeckBuff { get; set; }
     }
 }

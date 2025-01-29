@@ -10,14 +10,24 @@ namespace DigitalWorldOnline.Commons.Utils
     {
         public static List<short> DungeonMapIds = new List<short>()
         {
-            13, 17, 20, 50, 51, 89, 210, 211, 212, 213, 214, 215, 252, 255, 270, 1110, 1111, 1112, 1304, 1308, 1310, 1311, 1403, 1404, 1406,
-            1500, 1501, 1502, 1600, 1601, 1602, 1603, 1604, 1605, 1606, 1607, 1608, 1609, 1610, 1611, 1612, 1613, 1614, 1615, 1701,
-            1702, 1703, 1704, 1705, 1706, 1809, 1810, 1911, 2001, 2002,9101
+            13, 17, 50, 51, 10, 210, 211, 212, 213, 214, 215, 255, 270, 1110, 1111, 1112, 1304, 1308, 1310, 1311, 1403,
+            1404, 1406, 1502, 1600, 1601, 1602, 1603, 1604, 1605, 1606, 1607, 1608, 1609, 1610, 1611, 1612, 1613, 1614,
+            1615, 1701, 1702, 1703, 1704, 1705, 1706, 1809, 1810, 1911, 2001, 2002
+        };
+
+        public static List<short> EventMapIds = new List<short>()
+        {
+            96, 97, 98, 99
+        };
+
+        public static List<short> PvpMapIds = new List<short>()
+        {
+            9101
         };
 
         public static List<int> IncreasePerLevelStun = new List<int>()
         {
-            7501411,7500811,7500511
+            7501411, 7500811, 7500511
         };
 
         private static readonly Random _random = new();
@@ -94,9 +104,11 @@ namespace DigitalWorldOnline.Commons.Utils
                     y = 0;
                     length = 0;
                 }
+
                 return length;
             }
         }
+
         public static byte[] GroupPackets(params byte[][] packets)
         {
             var resultArray = new byte[packets.Sum(a => a.Length)];
@@ -111,7 +123,7 @@ namespace DigitalWorldOnline.Commons.Utils
 
             return resultArray;
         }
-        
+
         public static ItemListMovimentationEnum SwitchItemList(int originSlot, int destinationSlot)
         {
             if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
@@ -121,98 +133,104 @@ namespace DigitalWorldOnline.Commons.Utils
                 return ItemListMovimentationEnum.InventoryToInventory;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.EquipmentMinSlot, GeneralSizeEnum.EquipmentMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.EquipmentMinSlot, GeneralSizeEnum.EquipmentMaxSlot))
             {
                 return ItemListMovimentationEnum.InventoryToEquipment;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot))
             {
                 return ItemListMovimentationEnum.InventoryToWarehouse;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot, GeneralSizeEnum.AccountWarehouseMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot,
+                         GeneralSizeEnum.AccountWarehouseMaxSlot))
             {
                 return ItemListMovimentationEnum.InventoryToAccountWarehouse;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.EquipmentMinSlot, GeneralSizeEnum.EquipmentMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
             {
                 return ItemListMovimentationEnum.EquipmentToInventory;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot))
             {
                 return ItemListMovimentationEnum.WarehouseToWarehouse;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
             {
                 return ItemListMovimentationEnum.WarehouseToInventory;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot, GeneralSizeEnum.AccountWarehouseMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot,
+                         GeneralSizeEnum.AccountWarehouseMaxSlot))
             {
                 return ItemListMovimentationEnum.WarehouseToAccountWarehouse;
             }
-            else if (originSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot, GeneralSizeEnum.AccountWarehouseMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot, GeneralSizeEnum.AccountWarehouseMaxSlot))
+            else if (originSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot,
+                         GeneralSizeEnum.AccountWarehouseMaxSlot)
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot,
+                         GeneralSizeEnum.AccountWarehouseMaxSlot))
             {
                 return ItemListMovimentationEnum.AccountWarehouseToAccountWarehouse;
             }
-            else if (originSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot, GeneralSizeEnum.AccountWarehouseMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
+            else if (originSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot,
+                         GeneralSizeEnum.AccountWarehouseMaxSlot)
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
             {
                 return ItemListMovimentationEnum.AccountWarehouseToInventory;
             }
-            else if (originSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot, GeneralSizeEnum.AccountWarehouseMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot))
+            else if (originSlot.IsBetween(GeneralSizeEnum.AccountWarehouseMinSlot,
+                         GeneralSizeEnum.AccountWarehouseMaxSlot)
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.WarehouseMinSlot, GeneralSizeEnum.WarehouseMaxSlot))
             {
                 return ItemListMovimentationEnum.AccountWarehouseToWarehouse;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
-                &&
-                destinationSlot == GeneralSizeEnum.XaiSlot.GetHashCode())
+                     &&
+                     destinationSlot == GeneralSizeEnum.XaiSlot.GetHashCode())
             {
                 return ItemListMovimentationEnum.InventoryToEquipment;
             }
             else if (originSlot == GeneralSizeEnum.XaiSlot.GetHashCode()
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
             {
                 return ItemListMovimentationEnum.EquipmentToInventory;
             }
             else if (originSlot == GeneralSizeEnum.DigiviceSlot.GetHashCode()
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
             {
                 return ItemListMovimentationEnum.DigiviceToInventory;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
-                &&
-                destinationSlot == GeneralSizeEnum.DigiviceSlot.GetHashCode())
+                     &&
+                     destinationSlot == GeneralSizeEnum.DigiviceSlot.GetHashCode())
             {
                 return ItemListMovimentationEnum.InventoryToDigivice;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.ChipsetMinSlot, GeneralSizeEnum.ChipsetMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.ChipsetMinSlot, GeneralSizeEnum.ChipsetMaxSlot))
             {
                 return ItemListMovimentationEnum.InventoryToChipset;
             }
             else if (originSlot.IsBetween(GeneralSizeEnum.ChipsetMinSlot, GeneralSizeEnum.ChipsetMaxSlot)
-                &&
-                destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
+                     &&
+                     destinationSlot.IsBetween(GeneralSizeEnum.InventoryMinSlot, GeneralSizeEnum.InventoryMaxSlot))
             {
                 return ItemListMovimentationEnum.ChipsetToInventory;
             }
@@ -224,7 +242,8 @@ namespace DigitalWorldOnline.Commons.Utils
 
         public static int RemainingTimeSeconds(int seconds)
         {
-            return (int)DateTimeOffset.Now.AddSeconds(DateTime.Now.AddSeconds(seconds).Subtract(DateTime.Now).TotalSeconds).ToUnixTimeSeconds();
+            return (int)DateTimeOffset.Now
+                .AddSeconds(DateTime.Now.AddSeconds(seconds).Subtract(DateTime.Now).TotalSeconds).ToUnixTimeSeconds();
         }
 
         public static int RemainingTimeMinutes(int minutes)
@@ -249,11 +268,11 @@ namespace DigitalWorldOnline.Commons.Utils
         public static long CurrentRemainingTimeToResetHour()
         {
             var hourlyResetTime = DateTimeOffset.UtcNow
-          .AddSeconds(DateTime.Now
-              .AddMinutes(60 - DateTime.Now.Minute)
-              .Subtract(DateTime.Now)
-              .TotalSeconds
-          ).ToUnixTimeSeconds();
+                .AddSeconds(DateTime.Now
+                    .AddMinutes(60 - DateTime.Now.Minute)
+                    .Subtract(DateTime.Now)
+                    .TotalSeconds
+                ).ToUnixTimeSeconds();
 
             return hourlyResetTime;
         }
@@ -265,25 +284,26 @@ namespace DigitalWorldOnline.Commons.Utils
             if (dateTime == null)
                 return 0;
             else
-                //return (int)DateTimeOffset.UtcNow.AddSeconds(dateTime.Value.Subtract(DateTime.Now).TotalSeconds).ToUnixTimeSeconds();
-                return (int)(dateTime.Value - DateTime.UtcNow).TotalSeconds;
+                return (int)DateTimeOffset.UtcNow.AddSeconds(dateTime.Value.Subtract(DateTime.Now).TotalSeconds)
+                    .ToUnixTimeSeconds();
         }
 
-        public static int GetHours(this DateTime? dateTime)
+        public static int GetUtcSecondsBuff(this DateTime? dateTime)
         {
             if (dateTime == null)
                 return 0;
             else
-                return (int)(dateTime.Value - DateTime.UtcNow).TotalHours;
+                return (int)(dateTime.Value - DateTime.UtcNow).TotalSeconds;
         }
 
         // ---------------------------------------------------------------------------
 
         public static byte GetNewChannel(this IEnumerable<byte> currentChannels)
         {
+            var enumerable = currentChannels.ToList();
             for (byte i = 0; i <= 15; i++)
             {
-                if (!currentChannels.Contains(i))
+                if (!enumerable.Contains(i))
                     return i;
             }
 
@@ -292,40 +312,39 @@ namespace DigitalWorldOnline.Commons.Utils
 
         public static byte GetChannelLoad(this byte playerCount)
         {
-            if (playerCount >= 0 && playerCount < 28)
-                return (byte)ChannelLoadEnum.Empty;
-            else if (playerCount >= 28 && playerCount < 56)
-                return (byte)ChannelLoadEnum.TwentyPercent;
-            else if (playerCount >= 56 && playerCount < 84)
-                return (byte)ChannelLoadEnum.ThirtyPercent;
-            else if (playerCount >= 84 && playerCount < 112)
-                return (byte)ChannelLoadEnum.FourtyPercent;
-            else if (playerCount >= 112 && playerCount < 140)
-                return (byte)ChannelLoadEnum.FiftyPercent;
-            else if (playerCount >= 140 && playerCount < 168)
-                return (byte)ChannelLoadEnum.SixtyPercent;
-            else if (playerCount >= 168 && playerCount < 196)
-                return (byte)ChannelLoadEnum.SeventyPercent;
-            else if (playerCount >= 196 && playerCount < 224)
-                return (byte)ChannelLoadEnum.EightyPercent;
-            else if (playerCount >= 224 && playerCount < 252)
-                return (byte)ChannelLoadEnum.NinetyPercent;
-            else
-                return (byte)ChannelLoadEnum.Full;
+            return playerCount switch
+            {
+                >= 0 and < 28 => (byte)ChannelLoadEnum.Empty,
+                >= 28 and < 56 => (byte)ChannelLoadEnum.TwentyPercent,
+                >= 56 and < 84 => (byte)ChannelLoadEnum.ThirtyPercent,
+                >= 84 and < 112 => (byte)ChannelLoadEnum.FourtyPercent,
+                >= 112 and < 140 => (byte)ChannelLoadEnum.FiftyPercent,
+                >= 140 and < 168 => (byte)ChannelLoadEnum.SixtyPercent,
+                >= 168 and < 196 => (byte)ChannelLoadEnum.SeventyPercent,
+                >= 196 and < 224 => (byte)ChannelLoadEnum.EightyPercent,
+                >= 224 and < 252 => (byte)ChannelLoadEnum.NinetyPercent,
+                _ => (byte)ChannelLoadEnum.Full
+            };
         }
+
+        // ---------------------------------------------------------------------------
 
         public static int GetUtcSeconds(this DateTime dateTime)
         {
-            return (int)DateTimeOffset.UtcNow.AddSeconds(dateTime.Subtract(DateTime.Now).TotalSeconds).ToUnixTimeSeconds();
+            return (int)DateTimeOffset.UtcNow.AddSeconds(dateTime.Subtract(DateTime.Now).TotalSeconds)
+                .ToUnixTimeSeconds();
         }
 
         public static bool HasAttributeAdvantage(this DigimonAttributeEnum hitter, DigimonAttributeEnum target)
         {
             return hitter switch
             {
-                DigimonAttributeEnum.Data => target == DigimonAttributeEnum.None || target == DigimonAttributeEnum.Vaccine,
-                DigimonAttributeEnum.Vaccine => target == DigimonAttributeEnum.None || target == DigimonAttributeEnum.Virus,
-                DigimonAttributeEnum.Virus => target == DigimonAttributeEnum.None || target == DigimonAttributeEnum.Data,
+                DigimonAttributeEnum.Data => target == DigimonAttributeEnum.None ||
+                                             target == DigimonAttributeEnum.Vaccine,
+                DigimonAttributeEnum.Vaccine => target == DigimonAttributeEnum.None ||
+                                                target == DigimonAttributeEnum.Virus,
+                DigimonAttributeEnum.Virus => target == DigimonAttributeEnum.None ||
+                                              target == DigimonAttributeEnum.Data,
                 DigimonAttributeEnum.Unknown => true,
                 _ => false,
             };
@@ -343,7 +362,8 @@ namespace DigitalWorldOnline.Commons.Utils
                 DigimonElementEnum.Wood => target == DigimonElementEnum.Neutral || target == DigimonElementEnum.Land,
                 DigimonElementEnum.Light => target == DigimonElementEnum.Neutral || target == DigimonElementEnum.Dark,
                 DigimonElementEnum.Dark => target == DigimonElementEnum.Neutral || target == DigimonElementEnum.Thunder,
-                DigimonElementEnum.Thunder => target == DigimonElementEnum.Neutral || target == DigimonElementEnum.Steel,
+                DigimonElementEnum.Thunder => target == DigimonElementEnum.Neutral ||
+                                              target == DigimonElementEnum.Steel,
                 DigimonElementEnum.Steel => target == DigimonElementEnum.Neutral || target == DigimonElementEnum.Light,
                 _ => false,
             };
@@ -381,6 +401,7 @@ namespace DigitalWorldOnline.Commons.Utils
                 _ => 0,
             };
         }
+
         public static int RandomInt(int minValue = 0, int maxValue = int.MaxValue)
         {
             return _random.Next(minValue, maxValue < int.MaxValue ? maxValue + 1 : int.MaxValue);
@@ -425,18 +446,21 @@ namespace DigitalWorldOnline.Commons.Utils
 
             return result;
         }
+
         public static double CalculateDistanceD(int x1, int y1, int x2, int y2)
         {
             var deltaX = x2 - x1;
             var deltaY = y2 - y1;
             return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
         }
+
         public static fPos Lerp(fPos start, fPos end, float t)
         {
             float x = start.x + (end.x - start.x) * t;
             float y = start.y + (end.y - start.y) * t;
             return new fPos((int)x, (int)y);
         }
+
         public static void Aguardar(int milissegundos)
         {
             if (milissegundos > 0)
@@ -452,13 +476,14 @@ namespace DigitalWorldOnline.Commons.Utils
                 tempStopwatch.Stop();
             }
         }
+
         public static int MapGroup(int mapId)
         {
-            if (mapId >= 1600 && mapId <= 1650 || mapId >= 2001 && mapId <= 2100)
+            if (mapId is >= 1600 and <= 1650 || mapId is >= 2001 and <= 2100)
             {
                 return 2; // Dterminal
             }
-            else if (mapId == 17 || mapId == 13 || mapId == 89)
+            else if (mapId == 17 || mapId == 13 || mapId == 10)
             {
                 return 3; // Dats
             }
@@ -474,11 +499,11 @@ namespace DigitalWorldOnline.Commons.Utils
             {
                 return 1306; // Infinite Mountain
             }
-            else if (mapId >= 1110 && mapId <= 1112)
+            else if (mapId is >= 1110 and <= 1112)
             {
                 return 2; // 1109 -> Dark Tower Wasteland
             }
-            else if (mapId >= 1500 && mapId <= 1502)
+            else if (mapId is >= 1500 and <= 1502)
             {
                 return 2; // GreenZone
             }
@@ -494,10 +519,29 @@ namespace DigitalWorldOnline.Commons.Utils
             {
                 return 1703; // Royal Base
             }
+            else if (mapId == 1)
+            {
+                return 3; // Event area
+            }
+            else if (mapId == 20)
+            {
+                return 1; // Event area
+            }
             else
             {
                 return -1; // Valor para indicar que o mapa não pertence a nenhum grupo conhecido
             }
+        }
+
+        /// <summary>
+        /// Check if this item is clone
+        /// </summary>
+        /// <param name="itemSection"></param>
+        /// <returns></returns>
+        public static bool IsCloneItem(int itemSection)
+        {
+            return itemSection.IsBetween(5511, 5512, 5513, 5514, 5515, 5521, 5522, 5523, 5524, 5525, 5536, 5537, 5538,
+                5539, 5540, 5531, 5532, 5533, 5534, 5535, 5501, 5502, 5503, 5504, 5505);
         }
     }
 }

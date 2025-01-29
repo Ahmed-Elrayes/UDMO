@@ -8,9 +8,8 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
         private const int PacketNumber = 3959;
 
         /// <summary>
-        /// Load the Cash Shop
+        /// Gotcha Error Packet
         /// </summary>
-        /// <param name="remainingSeconds">The membership remaining seconds (UTC).</param>
         public GotchaErrorPacket()
         {
             Type(PacketNumber);

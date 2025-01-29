@@ -1,4 +1,5 @@
-﻿using DigitalWorldOnline.Application;
+﻿using Microsoft.Extensions.Configuration;
+using DigitalWorldOnline.Application;
 using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
@@ -9,12 +10,10 @@ using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.MapServer;
-using DigitalWorldOnline.Game.Managers;
+using DigitalWorldOnline.GameHost.EventsServer;
 using DigitalWorldOnline.GameHost;
-
-
+using DigitalWorldOnline.Game.Managers;
 using MediatR;
-using Microsoft.Extensions.Configuration;
 using Serilog;
 
 namespace DigitalWorldOnline.Game.PacketProcessors
@@ -28,22 +27,26 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private const string GameServerPort = "GameServer:Port";
 
         private readonly PartyManager _partyManager;
-        private readonly IConfiguration _configuration;
         private readonly AssetsLoader _assets;
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ISender _sender;
         private readonly ILogger _logger;
+        private readonly IConfiguration _configuration;
 
-        public WarpGatePacketProcessor(PartyManager partyManager, IConfiguration configuration,
-            AssetsLoader assets, MapServer mapServer, DungeonsServer dungeonServer,
-            ISender sender, ILogger logger)
+        public WarpGatePacketProcessor(PartyManager partyManager, AssetsLoader assets,
+            MapServer mapServer, DungeonsServer dungeonServer, EventServer eventServer, PvpServer pvpServer,
+            ISender sender, ILogger logger, IConfiguration configuration)
         {
             _partyManager = partyManager;
             _configuration = configuration;
             _assets = assets;
             _mapServer = mapServer;
             _dungeonServer = dungeonServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _sender = sender;
             _logger = logger;
         }
@@ -54,7 +57,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var portalId = packet.ReadInt();
 
-            //_logger.Information($"Normal PortalId: {portalId}");
+            _logger.Information($"Using Normal PortalId: {portalId}");
 
             var portal = _assets.Portal.FirstOrDefault(x => x.Id == portalId);
 
@@ -78,6 +81,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 }
 
                 _mapServer.RemoveClient(client);
+                _eventServer.RemoveClient(client);
 
                 var destination = waypoints.Regions.First();
 
@@ -90,15 +94,8 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 client.Tamer.UpdateState(CharacterStateEnum.Loading);
                 await _sender.Send(new UpdateCharacterStateCommand(client.TamerId, CharacterStateEnum.Loading));
 
-                client.Send(
-                    new MapSwapPacket(
-                        _configuration[GamerServerPublic],
-                        _configuration[GameServerPort],
-                        mapId,
-                        destination.X,
-                        destination.Y
-                    )
-                );
+                client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
+                    mapId, destination.X, destination.Y));
             }
             else
             {
@@ -116,36 +113,31 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                             for (int i = 0; i < 3; i++)
                             {
-
                                 switch (RemoveInfo.npcPortalsAsset[i].Type)
                                 {
                                     case NpcResourceTypeEnum.Money:
-                                        {
+                                    {
+                                        client.Tamer.Inventory.RemoveBits(RemoveInfo.npcPortalsAsset[i].ItemId);
 
-                                            client.Tamer.Inventory.RemoveBits(RemoveInfo.npcPortalsAsset[i].ItemId);
-
-                                            await _sender.Send(new UpdateItemListBitsCommand(client.Tamer.Inventory));
-
-                                        }
+                                        await _sender.Send(new UpdateItemListBitsCommand(client.Tamer.Inventory));
+                                    }
                                         break;
 
                                     case NpcResourceTypeEnum.Item:
+                                    {
+                                        var targeItem =
+                                            client.Tamer.Inventory.FindItemById(RemoveInfo.npcPortalsAsset[i].ItemId);
+
+                                        if (targeItem != null)
                                         {
-                                            var targeItem = client.Tamer.Inventory.FindItemById(RemoveInfo.npcPortalsAsset[i].ItemId);
-
-                                            if (targeItem != null)
-                                            {
-                                                client.Tamer.Inventory.RemoveOrReduceItem(targeItem, 1)
-                                                    ;
-                                                await _sender.Send(new UpdateItemCommand(targeItem));
-                                            }
-
+                                            client.Tamer.Inventory.RemoveOrReduceItem(targeItem, 1);
+                                            await _sender.Send(new UpdateItemCommand(targeItem));
                                         }
+                                    }
                                         break;
                                 }
                             }
                         }
-
                     }
                 }
 
@@ -158,12 +150,23 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     await _sender.Send(new UpdateDigimonLocationCommand(client.Tamer.Partner.Location));
 
                     client.Send(new LocalMapSwapPacket(client.Tamer.GeneralHandler, client.Tamer.Partner.GeneralHandler,
-                         portal.DestinationX, portal.DestinationY, portal.DestinationX, portal.DestinationY));
+                        portal.DestinationX, portal.DestinationY, portal.DestinationX, portal.DestinationY));
 
                     return;
                 }
 
-                _mapServer.RemoveClient(client);
+                if (client.EventMap)
+                {
+                    _eventServer.RemoveClient(client);
+                }
+                else if (client.PvpMap)
+                {
+                    _pvpServer.RemoveClient(client);
+                }
+                else
+                {
+                    _mapServer.RemoveClient(client);
+                }
 
                 client.Tamer.NewLocation(portal.DestinationMapId, portal.DestinationX, portal.DestinationY);
                 await _sender.Send(new UpdateCharacterLocationCommand(client.Tamer.Location));
@@ -177,7 +180,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 client.SetGameQuit(false);
 
                 client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
-                                client.Tamer.Location.MapId, client.Tamer.Location.X, client.Tamer.Location.Y));
+                    client.Tamer.Location.MapId, client.Tamer.Location.X, client.Tamer.Location.Y));
 
                 var party = _partyManager.FindParty(client.TamerId);
 
@@ -185,20 +188,23 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 {
                     party.UpdateMember(party[client.TamerId], client.Tamer);
 
-                    foreach (var target in party.Members.Values)
+                    /*foreach (var target in party.Members.Values)
                     {
                         var targetClient = _mapServer.FindClientByTamerId(target.Id);
 
                         if (targetClient == null) continue;
 
-                        if (target.Id != client.Tamer.Id) targetClient.Send(new PartyMemberWarpGatePacket(party[client.TamerId]).Serialize());
-                    }
+                        if (target.Id != client.Tamer.Id) targetClient.Send(new PartyMemberWarpGatePacket(party[client.TamerId], targetClient.Tamer).Serialize());
+                    }*/
+
+                    _mapServer.BroadcastForTargetTamers(party.GetMembersIdList(),
+                        new PartyMemberWarpGatePacket(party[client.TamerId], client.Tamer).Serialize());
+                    _eventServer.BroadcastForTargetTamers(party.GetMembersIdList(),
+                        new PartyMemberWarpGatePacket(party[client.TamerId], client.Tamer).Serialize());
                 }
             }
 
             //client.Send(new SendHandler(client.Tamer.GeneralHandler));
-
         }
     }
 }
-

@@ -2,6 +2,7 @@
 using DigitalWorldOnline.Commons.DTOs.Assets;
 using DigitalWorldOnline.Commons.DTOs.Character;
 using DigitalWorldOnline.Commons.DTOs.Config;
+using DigitalWorldOnline.Commons.DTOs.Config.Events;
 using DigitalWorldOnline.Commons.DTOs.Server;
 using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.Account;
@@ -11,6 +12,7 @@ namespace DigitalWorldOnline.Commons.Repositories.Admin
     public interface IAdminCommandsRepository
     {
         Task<AccountDTO> AddAccountAsync(AccountDTO account);
+        Task<SummonDTO> AddSummonConfigAsync(SummonDTO summon);
 
         Task<CloneConfigDTO> AddCloneConfigAsync(CloneConfigDTO clone);
 
@@ -19,6 +21,8 @@ namespace DigitalWorldOnline.Commons.Repositories.Admin
         Task<HatchConfigDTO> AddHatchConfigAsync(HatchConfigDTO hatch);
 
         Task<MobConfigDTO> AddMobAsync(MobConfigDTO mob);
+        Task<SummonMobDTO> AddSummonMobAsync(SummonMobDTO mob);
+
 
         Task<ScanDetailAssetDTO> AddScanConfigAsync(ScanDetailAssetDTO scan);
 
@@ -31,6 +35,7 @@ namespace DigitalWorldOnline.Commons.Repositories.Admin
         Task<AccountCreateResult> CreateAccountAsync(string username, string email, string discordId, string password);
         
         Task DeleteAccountAsync(long id);
+        Task DeleteSummonAsync(long id);
 
         Task DeleteCloneConfigAsync(long id);
 
@@ -41,6 +46,8 @@ namespace DigitalWorldOnline.Commons.Repositories.Admin
         Task DeleteMapMobsAsync(long id);
 
         Task DeleteMobAsync(long id);
+        Task DeleteSummonMobAsync(long id);
+
 
         Task DeleteScanConfigAsync(long id);
 
@@ -51,6 +58,8 @@ namespace DigitalWorldOnline.Commons.Repositories.Admin
         Task DeleteUserAsync(long id);
 
         Task DuplicateMobAsync(long id);
+        Task DuplicateSummonMobAsync(long id);
+
 
         Task UpdateAccountAsync(AccountDTO account);
 
@@ -67,5 +76,25 @@ namespace DigitalWorldOnline.Commons.Repositories.Admin
         Task UpdateSpawnPointAsync(MapRegionAssetDTO spawnPoint, long mapId);
 
         Task UpdateUserAsync(UserDTO user);
+        
+        Task<EventConfigDTO> AddEventConfigAsync(EventConfigDTO eventConfig);
+
+        Task UpdateEventConfigAsync(EventConfigDTO eventConfig);
+
+        Task DeleteEventConfigAsync(long id);
+        
+        Task<EventMapsConfigDTO> AddEventMapConfigAsync(EventMapsConfigDTO eventConfig);
+
+        Task UpdateEventMapConfigAsync(EventMapsConfigDTO eventConfig);
+
+        Task DeleteEventMapConfigAsync(long id);
+
+        Task<EventMobConfigDTO> AddEventMobAsync(EventMobConfigDTO mob);
+
+        Task DeleteEventMapMobsAsync(long id);
+
+        Task DeleteEventMobAsync(long id);
+        
+        Task DuplicateEventMobAsync(long id);
     }
 }

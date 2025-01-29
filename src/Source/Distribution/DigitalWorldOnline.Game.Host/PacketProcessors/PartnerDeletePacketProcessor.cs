@@ -15,10 +15,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly ILogger _logger;
         private readonly ISender _sender;
 
-        public PartnerDeletePacketProcessor(
-            ILogger logger,
-            ISender sender
-        )
+        public PartnerDeletePacketProcessor(ILogger logger, ISender sender)
         {
             _logger = logger;
             _sender = sender;
@@ -27,6 +24,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public async Task Process(GameClient client, byte[] packetData)
         {
             var packet = new GamePacketReader(packetData);
+
             var slot = packet.ReadByte();
             var validation = packet.ReadString();
 

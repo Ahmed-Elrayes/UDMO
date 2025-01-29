@@ -1,10 +1,14 @@
 ﻿using AutoMapper;
+using DigitalWorldOnline.Application;
+using DigitalWorldOnline.Application.Separar.Commands.Create;
 using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums.Character;
 using DigitalWorldOnline.Commons.Interfaces;
+using DigitalWorldOnline.Commons.Models.Asset;
 using DigitalWorldOnline.Commons.Models.Character;
+using DigitalWorldOnline.Commons.Models.Digimon;
 using DigitalWorldOnline.Commons.Packets.AuthenticationServer;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
@@ -12,11 +16,11 @@ using DigitalWorldOnline.Commons.Packets.MapServer;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
-using System.Security.AccessControl;
 
 namespace DigitalWorldOnline.Game
 {
@@ -28,22 +32,27 @@ namespace DigitalWorldOnline.Game
         private readonly ILogger _logger;
         private readonly IMapper _mapper;
         private readonly ISender _sender;
+        private readonly AssetsLoader _assets;
         private readonly MapServer _mapServer;
         private readonly PvpServer _pvpServer;
         private readonly DungeonsServer _dungeonsServer;
+        private readonly EventServer _eventServer;
         private readonly PartyManager _partyManager;
 
         private const int OnConnectEventHandshakeHandler = 65535;
 
-        public GameServer(IHostApplicationLifetime hostApplicationLifetime,
+        public GameServer(
+            IHostApplicationLifetime hostApplicationLifetime,
             IConfiguration configuration,
             IProcessor processor,
             ILogger logger,
             IMapper mapper,
             ISender sender,
+            AssetsLoader assets,
             MapServer mapServer,
             PvpServer pvpServer,
             DungeonsServer dungeonsServer,
+            EventServer eventServer,
             PartyManager partyManager)
         {
             OnConnect += OnConnectEvent;
@@ -56,9 +65,11 @@ namespace DigitalWorldOnline.Game
             _logger = logger;
             _mapper = mapper;
             _sender = sender;
+            _assets = assets;
             _mapServer = mapServer;
             _pvpServer = pvpServer;
             _dungeonsServer = dungeonsServer;
+            _eventServer = eventServer;
             _partyManager = partyManager;
         }
 
@@ -81,10 +92,11 @@ namespace DigitalWorldOnline.Game
                 gameClientEvent.Client.Disconnect();
                 RemoveClient(gameClientEvent.Client);
             }*/
-            
+
             _logger.Information($"Accepted connection event from {gameClientEvent.Client.HiddenAddress}.");
 
-            gameClientEvent.Client.SetHandshake((short)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() & OnConnectEventHandshakeHandler));
+            gameClientEvent.Client.SetHandshake((short)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() &
+                                                        OnConnectEventHandshakeHandler));
 
             if (gameClientEvent.Client.IsConnected)
             {
@@ -102,28 +114,46 @@ namespace DigitalWorldOnline.Game
         /// <param name="gameClientEvent">Game client who disconnected</param>
         private async void OnDisconnectEvent(object sender, GameClientEvent gameClientEvent)
         {
-            if(gameClientEvent.Client.TamerId > 0)
+            if (gameClientEvent.Client.TamerId > 0)
             {
-                _logger.Information($"Received disconnection event for {gameClientEvent.Client.Tamer.Name} {gameClientEvent.Client.TamerId} {gameClientEvent.Client.HiddenAddress}.");
+                _logger.Information(
+                    $"Received disconnection event for {gameClientEvent.Client.Tamer.Name} {gameClientEvent.Client.TamerId} {gameClientEvent.Client.HiddenAddress}.");
 
-                _logger.Debug($"Source disconnected: {gameClientEvent.Client.ClientAddress}. Account: {gameClientEvent.Client.AccountId}.");
+                _logger.Debug(
+                    $"Source disconnected: {gameClientEvent.Client.ClientAddress}. Account: {gameClientEvent.Client.AccountId}.");
 
                 if (gameClientEvent.Client.DungeonMap)
                 {
-                    _logger.Information($"Removing the tamer {gameClientEvent.Client.Tamer.Name} . {gameClientEvent.Client.HiddenAddress}.");
+                    _logger.Information(
+                        $"Removing the tamer {gameClientEvent.Client.Tamer.Name} . {gameClientEvent.Client.HiddenAddress}.");
                     _dungeonsServer.RemoveClient(gameClientEvent.Client);
+                }
+                else if (gameClientEvent.Client.EventMap)
+                {
+                    _logger.Information(
+                        $"Removing the tamer {gameClientEvent.Client.Tamer.Name} . {gameClientEvent.Client.HiddenAddress}.");
+                    _eventServer.RemoveClient(gameClientEvent.Client);
+                }
+                else if (gameClientEvent.Client.PvpMap)
+                {
+                    _logger.Information(
+                        $"Removing the tamer {gameClientEvent.Client.Tamer.Name} . {gameClientEvent.Client.HiddenAddress}.");
+                    _pvpServer.RemoveClient(gameClientEvent.Client);
                 }
                 else
                 {
-                    _logger.Information($"Removing the tamer {gameClientEvent.Client.Tamer.Name} {gameClientEvent.Client.TamerId}. {gameClientEvent.Client.HiddenAddress}.");
+                    _logger.Information(
+                        $"Removing the tamer {gameClientEvent.Client.Tamer.Name} {gameClientEvent.Client.TamerId}. {gameClientEvent.Client.HiddenAddress}.");
                     _mapServer.RemoveClient(gameClientEvent.Client);
                 }
 
                 if (gameClientEvent.Client.GameQuit)
                 {
                     gameClientEvent.Client.Tamer.UpdateState(CharacterStateEnum.Disconnected);
-                    _logger.Information($"Updating character {gameClientEvent.Client.Tamer.Name} {gameClientEvent.Client.TamerId} state upon disconnect...");
-                    await _sender.Send(new UpdateCharacterStateCommand(gameClientEvent.Client.TamerId, CharacterStateEnum.Disconnected));
+                    _logger.Information(
+                        $"Updating character {gameClientEvent.Client.Tamer.Name} {gameClientEvent.Client.TamerId} state upon disconnect...");
+                    await _sender.Send(new UpdateCharacterStateCommand(gameClientEvent.Client.TamerId,
+                        CharacterStateEnum.Disconnected));
 
                     CharacterFriendsNotification(gameClientEvent);
                     CharacterGuildNotification(gameClientEvent);
@@ -154,7 +184,8 @@ namespace DigitalWorldOnline.Game
 
                     if (targetClient == null) continue;
 
-                    targetClient.Send(new PartyMemberLeavePacket(party[gameClientEvent.Client.TamerId].Key).Serialize());
+                    targetClient.Send(new PartyMemberDisconnectedPacket(party[gameClientEvent.Client.TamerId].Key)
+                        .Serialize());
                 }
 
                 if (member.Key == party.LeaderId && party.Members.Count >= 3)
@@ -181,25 +212,28 @@ namespace DigitalWorldOnline.Game
                     {
                         var map = UtilitiesFunctions.MapGroup(gameClientEvent.Client.Tamer.Location.MapId);
 
-                        var mapConfig =  await _sender.Send(new GameMapConfigByMapIdQuery(map));
-                        var waypoints =  await _sender.Send(new MapRegionListAssetsByMapIdQuery(map));
+                        var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(map));
+                        var waypoints = await _sender.Send(new MapRegionListAssetsByMapIdQuery(map));
 
                         if (mapConfig == null || waypoints == null || !waypoints.Regions.Any())
                         {
-                            gameClientEvent.Client.Send(new SystemMessagePacket($"Map information not found for map Id {map}."));
-                            _logger.Warning($"Map information not found for map Id {map} on character {gameClientEvent.Client.TamerId}.");
+                            gameClientEvent.Client.Send(
+                                new SystemMessagePacket($"Map information not found for map Id {map}."));
+                            _logger.Warning(
+                                $"Map information not found for map Id {map} on character {gameClientEvent.Client.TamerId}.");
                             _partyManager.RemoveParty(party.Id);
                             return;
                         }
-                        
+
                         var destination = waypoints.Regions.First();
 
-                        foreach (var pmember in party.Members.Values.Where(x => x.Id != gameClientEvent.Client.Tamer.Id).ToList())
+                        foreach (var pmember in party.Members.Values.Where(x => x.Id != gameClientEvent.Client.Tamer.Id)
+                                     .ToList())
                         {
                             var dungeonClient = _dungeonsServer.FindClientByTamerId(pmember.Id);
 
                             if (dungeonClient == null) continue;
-                            
+
                             if (dungeonClient.DungeonMap)
                             {
                                 _dungeonsServer.RemoveClient(dungeonClient);
@@ -208,26 +242,33 @@ namespace DigitalWorldOnline.Game
                                 await _sender.Send(new UpdateCharacterLocationCommand(dungeonClient.Tamer.Location));
 
                                 dungeonClient.Tamer.Partner.NewLocation(map, destination.X, destination.Y);
-                                await _sender.Send(new UpdateDigimonLocationCommand(dungeonClient.Tamer.Partner.Location));
+                                await _sender.Send(
+                                    new UpdateDigimonLocationCommand(dungeonClient.Tamer.Partner.Location));
 
                                 dungeonClient.Tamer.UpdateState(CharacterStateEnum.Loading);
-                                await _sender.Send(new UpdateCharacterStateCommand(dungeonClient.TamerId, CharacterStateEnum.Loading));
-                                
+                                await _sender.Send(new UpdateCharacterStateCommand(dungeonClient.TamerId,
+                                    CharacterStateEnum.Loading));
+
                                 foreach (var memberId in party.GetMembersIdList())
                                 {
                                     var targetDungeon = _dungeonsServer.FindClientByTamerId(memberId);
-                                    if (targetDungeon != null) targetDungeon.Send(new PartyMemberWarpGatePacket(party[dungeonClient.TamerId]).Serialize());
+                                    if (targetDungeon != null)
+                                        targetDungeon.Send(new PartyMemberWarpGatePacket(party[dungeonClient.TamerId],
+                                                gameClientEvent.Client.Tamer)
+                                            .Serialize());
                                 }
 
                                 dungeonClient?.SetGameQuit(false);
 
-                                dungeonClient?.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
-                                    dungeonClient.Tamer.Location.MapId, dungeonClient.Tamer.Location.X, dungeonClient.Tamer.Location.Y));
-                            }                       
+                                dungeonClient?.Send(new MapSwapPacket(_configuration[GamerServerPublic],
+                                    _configuration[GameServerPort],
+                                    dungeonClient.Tamer.Location.MapId, dungeonClient.Tamer.Location.X,
+                                    dungeonClient.Tamer.Location.Y));
+                            }
                         }
                     }
 
-                    party.RemoveMember(party[gameClientEvent.Client.TamerId].Key);                 
+                    party.RemoveMember(party[gameClientEvent.Client.TamerId].Key);
                 }
 
                 if (party.Members.Count <= 1)
@@ -244,61 +285,80 @@ namespace DigitalWorldOnline.Game
                     if (guildMember.CharacterInfo == null)
                     {
                         var guildMemberClient = _mapServer.FindClientByTamerId(guildMember.CharacterId);
-                        
+
                         if (guildMemberClient != null)
                         {
                             guildMember.SetCharacterInfo(guildMemberClient.Tamer);
                         }
                         else
                         {
-                            guildMember.SetCharacterInfo(_mapper.Map<CharacterModel>(_sender.Send(new CharacterByIdQuery(guildMember.CharacterId)).Result));
+                            guildMember.SetCharacterInfo(_mapper.Map<CharacterModel>(_sender
+                                .Send(new CharacterByIdQuery(guildMember.CharacterId)).Result));
                         }
                     }
                 }
 
                 foreach (var guildMember in gameClientEvent.Client.Tamer.Guild.Members)
                 {
-                    _logger.Debug($"Sending guild member disconnection packet for character {guildMember.CharacterId}...");
-                    _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildMemberDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+                    _logger.Debug(
+                        $"Sending guild member disconnection packet for character {guildMember.CharacterId}...");
 
-                    _logger.Debug($"Sending guild information packet for character {gameClientEvent.Client.TamerId}...");
-                    _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildInformationPacket(gameClientEvent.Client.Tamer.Guild).Serialize());
+                    _logger.Debug(
+                        $"Sending guild information packet for character {gameClientEvent.Client.TamerId}...");
 
-                    _logger.Debug($"Sending guild member disconnection packet for character {guildMember.CharacterId}...");
-                    _dungeonsServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildMemberDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+                    _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildMemberDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
 
-                    _logger.Debug($"Sending guild information packet for character {gameClientEvent.Client.TamerId}...");
-                    _dungeonsServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildInformationPacket(gameClientEvent.Client.Tamer.Guild).Serialize());
+                    _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildInformationPacket(gameClientEvent.Client.Tamer.Guild).Serialize());
 
+                    _dungeonsServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildMemberDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+
+                    _dungeonsServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildInformationPacket(gameClientEvent.Client.Tamer.Guild).Serialize());
+
+                    _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildMemberDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+
+                    _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildInformationPacket(gameClientEvent.Client.Tamer.Guild).Serialize());
+
+                    _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildMemberDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+
+                    _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                        new GuildInformationPacket(gameClientEvent.Client.Tamer.Guild).Serialize());
                 }
             }
         }
 
-        private void CharacterFriendsNotification(GameClientEvent gameClientEvent)
+        private async void CharacterFriendsNotification(GameClientEvent gameClientEvent)
         {
-            gameClientEvent.Client.Tamer.Friends.ForEach(friend =>
+            gameClientEvent.Client.Tamer.Friended.ForEach(friend =>
             {
                 _logger.Information($"Sending friend disconnection packet for character {friend.FriendId}...");
-                //_mapServer.BroadcastForUniqueTamer(friend.FriendId, new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
-                //_dungeonsServer.BroadcastForUniqueTamer(friend.FriendId, new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
-
-                var targetClient = _mapServer.FindClientByTamerId(friend.FriendId);
-
-                if (targetClient == null) targetClient = _dungeonsServer.FindClientByTamerId(friend.FriendId);
-
-                if (targetClient != null)
-                    targetClient.Send(new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
-
+                _mapServer.BroadcastForUniqueTamer(friend.FriendId,
+                    new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+                _dungeonsServer.BroadcastForUniqueTamer(friend.FriendId,
+                    new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+                _eventServer.BroadcastForUniqueTamer(friend.FriendId,
+                    new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
+                _pvpServer.BroadcastForUniqueTamer(friend.FriendId,
+                    new FriendDisconnectPacket(gameClientEvent.Client.Tamer.Name).Serialize());
             });
+
+            await _sender.Send(new UpdateCharacterFriendsCommand(gameClientEvent.Client.Tamer, false));
         }
 
         private void CharacterTargetTraderNotification(GameClientEvent gameClientEvent)
         {
             if (gameClientEvent.Client.Tamer.TargetTradeGeneralHandle != 0)
             {
-                if(gameClientEvent.Client.DungeonMap)
+                if (gameClientEvent.Client.DungeonMap)
                 {
-                    var targetClient = _dungeonsServer.FindClientByTamerHandle(gameClientEvent.Client.Tamer.TargetTradeGeneralHandle);
+                    var targetClient =
+                        _dungeonsServer.FindClientByTamerHandle(gameClientEvent.Client.Tamer.TargetTradeGeneralHandle);
 
                     if (targetClient != null)
                     {
@@ -308,7 +368,8 @@ namespace DigitalWorldOnline.Game
                 }
                 else
                 {
-                    var targetClient = _mapServer.FindClientByTamerHandleAndChannel(gameClientEvent.Client.Tamer.TargetTradeGeneralHandle, gameClientEvent.Client.TamerId);
+                    var targetClient = _mapServer.FindClientByTamerHandleAndChannel(
+                        gameClientEvent.Client.Tamer.TargetTradeGeneralHandle, gameClientEvent.Client.TamerId);
 
                     if (targetClient != null)
                     {
@@ -318,7 +379,7 @@ namespace DigitalWorldOnline.Game
                 }
             }
         }
-        
+
         private async Task DungeonWarpGate(GameClientEvent gameClientEvent)
         {
             if (gameClientEvent.Client.DungeonMap)
@@ -330,8 +391,10 @@ namespace DigitalWorldOnline.Game
 
                 if (mapConfig == null || waypoints == null || !waypoints.Regions.Any())
                 {
-                    gameClientEvent.Client.Send(new SystemMessagePacket($"Map information not found for map Id {map}."));
-                    _logger.Warning($"Map information not found for map Id {map} on character {gameClientEvent.Client.TamerId} Dungeon Portal");
+                    gameClientEvent.Client.Send(
+                        new SystemMessagePacket($"Map information not found for map Id {map}."));
+                    _logger.Warning(
+                        $"Map information not found for map Id {map} on character {gameClientEvent.Client.TamerId} Dungeon Portal");
                     return;
                 }
 
@@ -344,7 +407,8 @@ namespace DigitalWorldOnline.Game
                 await _sender.Send(new UpdateDigimonLocationCommand(gameClientEvent.Client.Tamer.Partner.Location));
 
                 gameClientEvent.Client.Tamer.UpdateState(CharacterStateEnum.Loading);
-                await _sender.Send(new UpdateCharacterStateCommand(gameClientEvent.Client.TamerId, CharacterStateEnum.Loading));
+                await _sender.Send(new UpdateCharacterStateCommand(gameClientEvent.Client.TamerId,
+                    CharacterStateEnum.Loading));
             }
         }
 
@@ -379,7 +443,9 @@ namespace DigitalWorldOnline.Game
                     using var fs = File.Create(filePath);
                     fs.Write(data, 0, data.Length);
                 }
-                catch { }
+                catch
+                {
+                }
 
                 //TODO: Salvar no banco com os parametros
             }
@@ -399,16 +465,15 @@ namespace DigitalWorldOnline.Game
             _hostApplicationLifetime.ApplicationStopping.Register(OnStopping);
             _hostApplicationLifetime.ApplicationStopped.Register(OnStopped);
 
+            Task.Run(CheckAllDigimonEvolutions);
             Task.Run(() => _mapServer.StartAsync(cancellationToken));
-            //_logger.Information($"_mapServer.StartAsync OK");
             Task.Run(() => _mapServer.LoadAllMaps(cancellationToken));
-            //_logger.Information($"_mapServer.LoadAllMaps OK");
-            Task.Run(() => _pvpServer.StartAsync(cancellationToken));
-            //_logger.Information($"_pvpServer.StartAsync OK");
+            //Task.Run(() => _mapServer.CallDiscordWarnings("Server Online", "13ff00", "1307467492888805476", "1280948869739450438"));
             Task.Run(() => _dungeonsServer.StartAsync(cancellationToken));
-            //_logger.Information($"_dungeonsServer.StartAsync OK");
-            //Task.Run(() => _eventServer.StartAsync(cancellationToken));
-            //_logger.Information($"_eventServer.StartAsync OK");
+            Task.Run(() => _pvpServer.StartAsync(cancellationToken));
+            Task.Run(() => _eventServer.StartAsync(cancellationToken));
+
+            Task.Run(() => _sender.Send(new UpdateCharacterFriendsCommand(null, false)));
 
             return Task.CompletedTask;
         }
@@ -424,7 +489,8 @@ namespace DigitalWorldOnline.Game
         /// </summary>
         private void OnStarted()
         {
-            if (!Listen(_configuration[GameServerAddress], _configuration[GameServerPort], _configuration[GameServerBacklog]))
+            if (!Listen(_configuration[GameServerAddress], _configuration[GameServerPort],
+                    _configuration[GameServerBacklog]))
             {
                 _logger.Error("Unable to start. Check the binding configurations.");
                 _hostApplicationLifetime.StopApplication();
@@ -441,8 +507,22 @@ namespace DigitalWorldOnline.Game
         /// </summary>
         private void OnStopping()
         {
-            _logger.Information($"Disconnecting clients from {GetType().Name}...");
-            Shutdown();
+            try
+            {
+                _logger.Information($"Disconnecting clients from {GetType().Name}...");
+
+                Task.Run(async () => await _sender.Send(new UpdateCharacterFriendsCommand(null, false)));
+
+                _logger.Information($"Made all friends offline {GetType().Name}...");
+
+                //_ = _mapServer.CallDiscordWarnings("Server Offline", "fc0303", "1307467492888805476", "1280948869739450438");
+                Shutdown();
+                return;
+            }
+            catch (Exception e)
+            {
+                throw; // TODO handle exception
+            }
         }
 
         /// <summary>
@@ -451,6 +531,147 @@ namespace DigitalWorldOnline.Game
         private void OnStopped()
         {
             _logger.Information($"{GetType().Name} stopped.");
+        }
+
+        private async Task<Task> CheckAllDigimonEvolutions()
+        {
+            List<DigimonModel> Digimons =
+                _mapper.Map<List<DigimonModel>>(await _sender.Send(new GetAllCharactersDigimonQuery()));
+
+            int digimonCount = 0;
+            int encyclopediaCount = 0;
+            int encyclopediaEvolutionCount = 0;
+            Digimons.ForEach(async void (digimon) =>
+            {
+                try
+                {
+                    var digimonEvolutionInfo =
+                        _mapper.Map<EvolutionAssetModel>(
+                            await _sender.Send(new DigimonEvolutionAssetsByTypeQuery(digimon.BaseType)));
+                    if (digimonEvolutionInfo == null)
+                    {
+                        _logger.Warning($"EvolutionInfo is null for digimon {digimon.BaseType}.");
+                        return;
+                    }
+
+                    if (digimonEvolutionInfo != null && digimon.Character.Encyclopedia != null)
+                    {
+                        var encyclopediaExists =
+                            digimon.Character.Encyclopedia.Exists(x => x.DigimonEvolutionId == digimonEvolutionInfo.Id);
+
+                        foreach (var evolutionLine in digimonEvolutionInfo.Lines)
+                        {
+                            if (!digimon.Evolutions.Exists(x => x.Type == evolutionLine.Type))
+                            {
+                                digimonCount++;
+                                digimon.Evolutions.Add(new DigimonEvolutionModel(evolutionLine.Type));
+                            }
+                        }
+
+                        // Check if encyclopedia exists
+                        if (!encyclopediaExists)
+                        {
+                            encyclopediaCount++;
+                            var encyclopedia = CharacterEncyclopediaModel.Create(digimon.Character.Id,
+                                digimonEvolutionInfo.Id, digimon.Level, digimon.Size, digimon.Digiclone.ATLevel,
+                                digimon.Digiclone.BLLevel, digimon.Digiclone.CTLevel, digimon.Digiclone.EVLevel,
+                                digimon.Digiclone.HPLevel,
+                                digimon.Evolutions.Count(x => Convert.ToBoolean(x.Unlocked)) ==
+                                digimon.Evolutions.Count,
+                                false);
+
+                            digimon.Evolutions?.ForEach(x =>
+                            {
+                                encyclopediaEvolutionCount++;
+                                var evolutionLine = digimonEvolutionInfo.Lines.FirstOrDefault(y => y.Type == x.Type);
+                                byte slotLevel = 0;
+
+                                if (evolutionLine != null)
+                                {
+                                    slotLevel = evolutionLine.SlotLevel;
+                                }
+
+                                var encyclopediaEvo =
+                                    CharacterEncyclopediaEvolutionsModel.Create(x.Type, slotLevel,
+                                        Convert.ToBoolean(x.Unlocked));
+                                _logger.Debug(
+                                    $"{encyclopediaEvo.Id}, {encyclopediaEvo.DigimonBaseType}, {encyclopediaEvo.SlotLevel}, {encyclopediaEvo.IsUnlocked}");
+
+                                encyclopedia.Evolutions.Add(encyclopediaEvo);
+                            });
+
+
+                            var encyclopediaAdded =
+                                await _sender.Send(new CreateCharacterEncyclopediaCommand(encyclopedia));
+                            digimon.Character.Encyclopedia.Add(encyclopediaAdded);
+                        }
+                        else
+                        {
+                            digimon?.Evolutions?.ForEach(async void (evolution) =>
+                            {
+                                try
+                                {
+                                    var evolutionLine =
+                                        digimonEvolutionInfo.Lines.FirstOrDefault(y => y.Type == evolution.Type);
+                                    byte slotLevel = 0;
+
+                                    if (evolutionLine != null)
+                                    {
+                                        slotLevel = evolutionLine.SlotLevel;
+                                    }
+
+                                    if (!digimon.Character.Encyclopedia.Exists(x =>
+                                            x.DigimonEvolutionId == digimonEvolutionInfo?.Id &&
+                                            x.Evolutions.Exists(evo => evo.DigimonBaseType == evolution.Type)))
+                                    {
+                                        encyclopediaEvolutionCount++;
+                                        var encyclopediaEvo =
+                                            CharacterEncyclopediaEvolutionsModel.Create(evolution.Type, slotLevel,
+                                                Convert.ToBoolean(evolution.Unlocked));
+
+                                        _logger.Debug(
+                                            $"{encyclopediaEvo.Id}, {encyclopediaEvo.DigimonBaseType}, {encyclopediaEvo.SlotLevel}, {encyclopediaEvo.IsUnlocked}");
+
+                                        digimon.Character.Encyclopedia
+                                            .First(x => x.DigimonEvolutionId == digimonEvolutionInfo?.Id)
+                                            ?.Evolutions.Add(encyclopediaEvo);
+
+                                        var lockedEncyclopediaCount = digimon.Character.Encyclopedia
+                                            .First(x => x.DigimonEvolutionId == digimonEvolutionInfo?.Id)
+                                            .Evolutions.Count(x => x.IsUnlocked == false);
+
+                                        if (lockedEncyclopediaCount <= 0)
+                                        {
+                                            digimon.Character.Encyclopedia
+                                                .First(x => x.DigimonEvolutionId == digimonEvolutionInfo?.Id)
+                                                .SetRewardAllowed();
+                                            digimon.Character.Encyclopedia
+                                                .First(x => x.DigimonEvolutionId == digimonEvolutionInfo?.Id)
+                                                .SetRewardReceived(false);
+                                            await _sender.Send(new UpdateCharacterEncyclopediaCommand(
+                                                digimon.Character.Encyclopedia.First(x =>
+                                                    x.DigimonEvolutionId == digimonEvolutionInfo?.Id)));
+                                        }
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    _logger.Information($"Error: {e.Message}");
+                                    _logger.Information($"Error: {e.StackTrace}");
+                                }
+                            });
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.Information($"Error total: {e.Message}");
+                    _logger.Information($"Error total: {e.StackTrace}");
+                }
+            });
+            _logger.Debug(
+                $"Added new information to all characters, Digimon count: {digimonCount}, Encyclopedia count: {encyclopediaCount}, Encyclopedia evolution count: {encyclopediaEvolutionCount}");
+            return Task.CompletedTask;
         }
     }
 }

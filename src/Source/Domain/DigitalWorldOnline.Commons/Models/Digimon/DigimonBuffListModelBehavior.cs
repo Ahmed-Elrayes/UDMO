@@ -65,10 +65,7 @@
         {
             var targetSkill = Buffs.FirstOrDefault(x => x.SkillId == skillId);
 
-            if (targetSkill != null)
-                return true;
-
-                return false;
+            return targetSkill != null;
         }
         /// <summary>
         /// Serializes buffs list.

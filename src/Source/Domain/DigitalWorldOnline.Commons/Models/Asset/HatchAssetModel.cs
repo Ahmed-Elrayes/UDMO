@@ -38,6 +38,16 @@
         public int MidClassDataAmount { get; private set; }
 
         /// <summary>
+        /// Low class data limit level.
+        /// </summary>
+        public int LowClassLimitLevel { get; private set; }
+
+        /// <summary>
+        /// Mid class data limit level.
+        /// </summary>
+        public int MidClassLimitLevel { get; private set; }
+
+        /// <summary>
         /// Low class data insertion break point.
         /// </summary>
         public int LowClassBreakPoint { get; private set; }
@@ -47,9 +57,5 @@
         /// </summary>
         public int MidClassBreakPoint { get; private set; }
 
-        /// <summary>
-        /// Reference to egg 100% (0 = Normal, 1 = 100% chance).
-        /// </summary>
-        public int EggType { get; private set; }
     }
 }

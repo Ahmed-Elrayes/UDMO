@@ -49,13 +49,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         {
             var packet = new GamePacketReader(packetData);
 
-            _logger.Information($"XCrystal Consume Packet\n");
+            _logger.Debug($"XCrystal Consume Packet\n");
 
-            _logger.Information($"Tamer Gauge: {client.Tamer.XGauge} | Tamer XCrystal: {client.Tamer.XCrystals}");
+            _logger.Debug($"Tamer Gauge: {client.Tamer.XGauge} | Tamer XCrystal: {client.Tamer.XCrystals}");
 
             if ((client.Tamer.XGauge + 500) > client.Tamer.Xai.XGauge)
             {
-                _logger.Information($"Gauge on limit, Sending Packet 16033");
+                _logger.Debug($"Gauge on limit, Sending Packet 16033");
                 client.Send(new XaiInfoPacket(client.Tamer.Xai));   // Send Packet 16033
             }
             else
@@ -64,7 +64,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 client.Tamer.SetXGauge(500);
             }
 
-            _logger.Information($"Tamer Gauge: {client.Tamer.XGauge} | Tamer XCrystal: {client.Tamer.XCrystals}");
+            _logger.Debug($"Tamer Gauge: {client.Tamer.XGauge} | Tamer XCrystal: {client.Tamer.XCrystals}");
             client.Send(new TamerXaiResourcesPacket(client.Tamer.XGauge, client.Tamer.XCrystals));   // Send Packet 16032
         }
 

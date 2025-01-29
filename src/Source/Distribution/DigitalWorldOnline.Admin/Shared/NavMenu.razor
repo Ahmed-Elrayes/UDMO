@@ -2,11 +2,12 @@
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Filled.Home">Home</MudNavLink>
 
     <AuthorizeView Roles="Administrator">
+        <MudNavLink Href="/events" Match="NavLinkMatch.All" Icon="@Icons.Filled.Event">Events</MudNavLink>
         <MudNavLink Href="/maps" Match="NavLinkMatch.All" Icon="@Icons.Filled.Map">Maps</MudNavLink>
         <MudNavLink Href="/scans" Match="NavLinkMatch.All" Icon="@Icons.Filled.WifiFind">Scan</MudNavLink>
         <MudNavLink Href="/containers" Match="NavLinkMatch.All" Icon="@Icons.Filled.Outbox">Container</MudNavLink>
         <MudNavLink Href="/summons" Match="NavLinkMatch.All" Icon="@Icons.Filled.SimCardDownload">Summon</MudNavLink>
-        <MudNavLink Href="/servers" Match="NavLinkMatch.All" Icon="@Icons.Filled.Storage">Servers</MudNavLink>
+        @* <MudNavLink Href="/servers" Match="NavLinkMatch.All" Icon="@Icons.Filled.Storage">Servers</MudNavLink> *@
         <MudNavLink Href="/accounts" Match="NavLinkMatch.All" Icon="@Icons.Filled.AssignmentTurnedIn">Accounts</MudNavLink>
         <MudNavLink Href="/users" Match="NavLinkMatch.All" Icon="@Icons.Filled.ManageAccounts">Users</MudNavLink>
     </AuthorizeView>

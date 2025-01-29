@@ -11,61 +11,48 @@ namespace DigitalWorldOnline.Commons.Models.Mechanics
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public List<ArenaRankingCompetitorModel> Competitors { get; set; }
-        
+
         private void UpdatePosition()
         {
             byte position = 0;
 
             var competitors = Competitors.OrderByDescending(c => c.Points);
 
-            foreach (var competitor in competitors) 
+            foreach (var competitor in competitors)
             {
                 position++;
                 competitor.SetPosition(position);
             }
         }
 
-        public ArenaRankingCompetitorModel GetRank (long Id)
+        public ArenaRankingCompetitorModel? GetRank(long tamerId)
         {
             UpdatePosition();
 
-           var  competitor = Competitors.FirstOrDefault(x => x.TamerId == Id);
+            var competitor = Competitors.FirstOrDefault(x => x.TamerId == tamerId);
 
-            if(competitor != null)
-            {
-                return competitor;
-            }
-            else
-            {
-                return null;
-            }
+            return competitor;
         }
 
         public void GetTop100()
         {
-            if(Competitors != null)
+            if (Competitors != null)
             {
-             
-                 Competitors.RemoveAll(c => c.Position > (byte)100);
-
+                Competitors.RemoveAll(c => c.Position > (byte)100);
             }
         }
 
         public void JoinRanking(long tamerId, int points)
         {
-            var competitor = new ArenaRankingCompetitorModel(tamerId,points);
+            var competitor = new ArenaRankingCompetitorModel(tamerId, points);
             Competitors.Add(competitor);
         }
 
         public long RemainingMinutes()
         {
-  
             var remainingMinutes = (int)(EndDate - DateTime.Now).TotalMinutes;
 
             return UtilitiesFunctions.RemainingTimeMinutes(remainingMinutes);
         }
     }
-
-    }
-
-
+}

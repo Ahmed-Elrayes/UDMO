@@ -10,6 +10,7 @@ using DigitalWorldOnline.Commons.Packets.MapServer;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Serilog;
@@ -27,18 +28,31 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly PartyManager _partyManager;
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
         private readonly IConfiguration _configuration;
 
-        public PartyMemberKickPacketProcessor(PartyManager partyManager, MapServer mapServer, ILogger logger, ISender sender, IConfiguration configuration, DungeonsServer dungeonServer)
+        public PartyMemberKickPacketProcessor(
+            PartyManager partyManager,
+            MapServer mapServer,
+            DungeonsServer dungeonServer,
+            EventServer eventServer,
+            PvpServer pvpServer,
+            ILogger logger, 
+            ISender sender,
+            IConfiguration configuration
+            )
         {
             _partyManager = partyManager;
             _mapServer = mapServer;
+            _dungeonServer = dungeonServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
             _configuration = configuration;
-            _dungeonServer = dungeonServer;
         }
 
         public async Task Process(GameClient client, byte[] packetData)
@@ -61,11 +75,10 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     var partyMember = party[targetName].Value;
 
-                    var bannedClient = _mapServer.FindClientByTamerId(partyMember.Id);
+                    var bannedClient = ((_mapServer.FindClientByTamerId(partyMember.Id) ?? _dungeonServer.FindClientByTamerId(partyMember.Id)) ??
+                                        _eventServer.FindClientByTamerId(partyMember.Id)) ?? _pvpServer.FindClientByTamerId(partyMember.Id);
 
-                    if (bannedClient == null) bannedClient = _dungeonServer.FindClientByTamerId(partyMember.Id);
-
-                    if (bannedClient != null) bannedClient.Send(new PartyMemberKickPacket(bannedTargetKey).Serialize());
+                    bannedClient?.Send(new PartyMemberKickPacket(bannedTargetKey).Serialize());
 
                     party.RemoveMember(bannedTargetKey);
 
@@ -109,15 +122,10 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             dungeonClient.Tamer.Location.MapId, dungeonClient.Tamer.Location.X, dungeonClient.Tamer.Location.Y));
                     }
 
-                    foreach (var target in party.Members.Values)
+                    foreach (var targetClient in party.Members.Values.Select(target => ((_mapServer.FindClientByTamerId(target.Id) ?? _dungeonServer.FindClientByTamerId(target.Id)) ??
+                                 _eventServer.FindClientByTamerId(target.Id)) ?? _pvpServer.FindClientByTamerId(target.Id)))
                     {
-                        var targetClient = _mapServer.FindClientByTamerId(target.Id);
-
-                        if (targetClient == null) targetClient = _dungeonServer.FindClientByTamerId(target.Id);
-
-                        if (targetClient == null) continue;
-
-                        targetClient.Send(new PartyMemberKickPacket(bannedTargetKey).Serialize());
+                        targetClient?.Send(new PartyMemberKickPacket(bannedTargetKey).Serialize());
                     }
 
                 }
@@ -127,7 +135,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     _dungeonServer.BroadcastForTargetTamers(membersList, new PartyMemberKickPacket(partyMemberToKick.Key).Serialize());
                     _mapServer.BroadcastForTargetTamers(membersList, new PartyMemberKickPacket(partyMemberToKick.Key).Serialize());
-
+                    _eventServer.BroadcastForTargetTamers(membersList, new PartyMemberKickPacket(partyMemberToKick.Key).Serialize());
+                    _pvpServer.BroadcastForTargetTamers(membersList, new PartyMemberKickPacket(partyMemberToKick.Key).Serialize());
+                    
                     var memberList = party.Members.Values;
 
                     foreach (var target in memberList)

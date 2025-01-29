@@ -6,10 +6,10 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
     {
         private const int PacketNumber = 3404;
 
-        /// <summary>
-        /// Send Cash Shop Info
-        /// </summary>
-        /// <param name="remainingSeconds">The membership remaining seconds (UTC).</param>
+       /// <summary>
+       /// <param name="premium"></param>
+       /// <param name="silk"></param>
+       /// </summary>
         public CashShopCoinsPacket(int premium, int silk)
         {
             Type(PacketNumber);

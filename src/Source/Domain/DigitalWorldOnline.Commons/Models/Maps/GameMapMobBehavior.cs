@@ -3,6 +3,7 @@ using DigitalWorldOnline.Commons.Models.Asset;
 using DigitalWorldOnline.Commons.Models.Assets;
 using DigitalWorldOnline.Commons.Models.Character;
 using DigitalWorldOnline.Commons.Models.Config;
+using DigitalWorldOnline.Commons.Models.Config.Events;
 using DigitalWorldOnline.Commons.Models.Summon;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.GameServer.Arena;
@@ -41,7 +42,24 @@ namespace DigitalWorldOnline.Commons.Models.Map
 
             return targetTamers;
         }
+        public List<long> FarawayTamers(SummonMobModel mob)
+        {
+            var targetTamers = new List<long>();
 
+            foreach (var tamer in ConnectedTamers)
+            {
+                var diff = UtilitiesFunctions.CalculateDistance(
+                    mob.CurrentLocation.X,
+                    tamer.Partner.Location.X,
+                    mob.CurrentLocation.Y,
+                    tamer.Partner.Location.Y);
+
+                if (diff >= _stopSeeing)
+                    targetTamers.Add(tamer.Id);
+            }
+
+            return targetTamers;
+        }
         // ---------------------------------------------------------------------------------------
 
         public void UpdateMapMobs()
@@ -177,8 +195,9 @@ namespace DigitalWorldOnline.Commons.Models.Map
 
                             BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOffPacket(targetClient.Tamer.GeneralHandler).Serialize());
                             BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOffPacket(targetClient.Tamer.Partner.GeneralHandler).Serialize());
+                            targetClient?.Send(new UnloadMobsPacket(mob));
 
-                            targetClient.Send(new DestroyMobsPacket(mob));
+                            // targetClient.Send(new DestroyMobsPacket(mob)); 
                         }
                     }
                 }
@@ -287,6 +306,68 @@ namespace DigitalWorldOnline.Commons.Models.Map
         }
 
         public void AttackTarget(SummonMobModel mob)
+        {
+            #region Hit Damage
+            var baseDamage = mob.ATValue - mob.Target.DE + UtilitiesFunctions.RandomInt(1, 15);
+            if (baseDamage < 0) baseDamage = 0;
+
+            var critBonusMultiplier = 0.00;
+            double critChance = mob.CTValue / 100;
+            if (critChance >= UtilitiesFunctions.RandomInt(100))
+                critBonusMultiplier = 0.01; //TODO: externalizar no portal
+
+            var blocked = mob.Target.BL >= UtilitiesFunctions.RandomDouble();
+
+            var levelBonusMultiplier = mob.Level > mob.Target.Level ?
+                (0.01f * (mob.Level - mob.Target.Level)) : 0; //TODO: externalizar no portal
+
+            var attributeMultiplier = 0.00;
+            if (mob.Attribute.HasAttributeAdvantage(mob.Target.BaseInfo.Attribute))
+                attributeMultiplier = 0.25;
+            else if (mob.Target.BaseInfo.Attribute.HasAttributeAdvantage(mob.Attribute))
+                attributeMultiplier = -0.25;
+
+            var elementMultiplier = 0.00;
+            if (mob.Element.HasElementAdvantage(mob.Target.BaseInfo.Element))
+                elementMultiplier = 0.25;
+            else if (mob.Target.BaseInfo.Element.HasElementAdvantage(mob.Element))
+                elementMultiplier = -0.25;
+
+            baseDamage /= blocked ? 2 : 1;
+
+            var finalDmg = (int)Math.Floor(baseDamage +
+                (baseDamage * critBonusMultiplier) +
+                (baseDamage * levelBonusMultiplier) +
+                (baseDamage * attributeMultiplier) +
+                (baseDamage * elementMultiplier));
+            #endregion
+
+            if (finalDmg <= 0) finalDmg = 1;
+
+            var previousHp = mob.Target.CurrentHp;
+            var newHp = mob.Target.ReceiveDamage(finalDmg);
+
+            var hitType = blocked ? 2 : critBonusMultiplier > 0 ? 1 : 0;
+
+            if (newHp > 0)
+            {
+                BroadcastForTargetTamers(mob.TamersViewing, new HitPacket(mob.GeneralHandler, mob.TargetHandler, finalDmg, previousHp, newHp, hitType).Serialize());
+                //BroadcastForTargetTamers(mob.TamersViewing, new UpdateCurrentHPRatePacket(mob.TargetHandler, mob.Target.HpRate).Finalize());
+            }
+            else
+            {
+                BroadcastForTargetTamers(mob.TamersViewing, new KillOnHitPacket(mob.GeneralHandler, mob.TargetHandler, finalDmg, hitType).Serialize());
+                BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOffPacket(mob.TargetHandler).Serialize());
+
+                mob.TargetTamer?.Die();
+                mob.NextTarget();
+            }
+
+            mob.UpdateLastHit();
+            mob.UpdateLastHitTry();
+        }
+
+        public void AttackTarget(EventMobConfigModel mob)
         {
             #region Hit Damage
             var baseDamage = mob.ATValue - mob.Target.DE + UtilitiesFunctions.RandomInt(1, 15);
@@ -509,6 +590,79 @@ namespace DigitalWorldOnline.Commons.Models.Map
             }
 
         }
+        public async void SkillTarget(EventMobConfigModel mob, MonsterSkillInfoAssetModel? targetSkill)
+        {
+            switch (targetSkill.SkillType)
+            {
+                case 27045:
+                    {
+                        List<CharacterModel> targetTamers = new List<CharacterModel>();
+
+                        var finalDamage = targetSkill.MaxValue;
+
+                        // Crie uma cópia da lista mob.TargetTamers para iterar sobre ela
+                        var targetTamersCopy = new List<CharacterModel>(mob.TargetTamers);
+
+                        foreach (var target in targetTamersCopy)
+                        {
+                            var clientToModify = Clients.FirstOrDefault(x => x.Tamer.Partner.Id == target.Partner.Id).Partner;
+
+                            if (clientToModify != null)
+                            {
+                                var diff = UtilitiesFunctions.CalculateDistance(
+                                    mob.CurrentLocation.X,
+                                  clientToModify.Location.X,
+                                    mob.CurrentLocation.Y,
+                                    clientToModify.Location.Y);
+
+
+                                if (diff <= 1900)
+                                {
+                                    var newHp = clientToModify.ReceiveDamage(finalDamage);
+
+                                    targetTamers.Add(target);
+
+                                    if (newHp <= 0)
+                                    {
+                                        clientToModify?.Die();
+
+                                    }
+                                }
+                            }
+
+                            if (!targetTamers.Any())
+                            {
+                                ChaseTarget(mob);
+                            }
+                            else
+                            {
+                                // TODO: Fornecer tempo de espera da skill.
+
+                                BroadcastForTargetTamers(mob.TamersViewing, new MonsterSkillVisualPacket(mob.GeneralHandler, targetSkill.SkillId).Serialize());
+                                BroadcastForTargetTamers(mob.TamersViewing, new MonsterSkillDamagePacket(mob.GeneralHandler, targetSkill.SkillId, finalDamage, targetTamers).Serialize());
+
+                                Task.Run(() =>
+                                {
+                                    Thread.Sleep((int)targetSkill.AnimationDelay);
+                                });
+
+
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            mob.SetSkillCooldown(targetSkill.Cooldown);
+            mob.UpdateLastSkill();
+            mob.UpdateLastSkillTry();
+
+            if (!mob.Target.Alive)
+            {
+                mob.NextTarget();
+            }
+
+        }
 
         // ---------------------------------------------------------------------------------------
 
@@ -608,6 +762,49 @@ namespace DigitalWorldOnline.Commons.Models.Map
             mob.MoveTo(newX, newY);
             BroadcastForTargetTamers(mob.TamersViewing, new MobRunPacket(mob).Serialize());
         }
+        public void ChaseTarget(EventMobConfigModel mob)
+        {
+            var diff = UtilitiesFunctions.CalculateDistance(
+                mob.CurrentLocation.X,
+                mob.InitialLocation.X,
+                mob.CurrentLocation.Y,
+                mob.InitialLocation.Y);
+
+            if (diff >= mob.HuntRange)
+            {
+                mob.GiveUp();
+                return;
+            }
+
+            #region Get New Position
+            var mobX = mob.CurrentLocation.X;
+            var mobY = mob.CurrentLocation.Y;
+            var partX = mob.Target.Location.X;
+            var partY = mob.Target.Location.Y;
+
+            var deltaX = partX - mobX;
+            var deltaY = partY - mobY;
+
+            var distance = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+            var range = Math.Max(mob.ARValue, mob.Target.BaseInfo.ARValue);
+            var min_distance = distance - range;
+            var angle = Math.Atan2(deltaY, deltaX);
+
+            var newX = (int)Math.Floor(mobX + min_distance * Math.Cos(angle));
+            var newY = (int)Math.Floor(mobY + min_distance * Math.Sin(angle));
+            #endregion
+
+            var diffNew = (int)UtilitiesFunctions.CalculateDistance(
+                mob.CurrentLocation.X,
+                newX,
+                mob.CurrentLocation.Y,
+                newY);
+
+            var wait = diffNew / mob.MSValue * 1000;
+            mob.UpdateChaseTime(DateTime.Now.AddMilliseconds(1000 + wait));
+            mob.MoveTo(newX, newY);
+            BroadcastForTargetTamers(mob.TamersViewing, new MobRunPacket(mob).Serialize());
+        }
 
         // ---------------------------------------------------------------------------------------
 
@@ -635,8 +832,8 @@ namespace DigitalWorldOnline.Commons.Models.Map
                         mob.StartBattle(targetClient.Tamer);
                         targetClient.Tamer.StartBattle(mob);
 
-                        if (!targetClient.Tamer.GodMode)
-                            AttackTarget(mob, npcAsset);
+                        /* if (!targetClient.Tamer.GodMode)
+                            AttackTarget(mob, npcAsset); */
 
                         break;
                     }
@@ -644,6 +841,35 @@ namespace DigitalWorldOnline.Commons.Models.Map
             }
         }
         public void AttackNearbyTamer(SummonMobModel mob, List<long> nearbyTamers, List<NpcColiseumAssetModel> npcAsset)
+        {
+            if (mob.ReactionType == DigimonReactionTypeEnum.Agressive && !mob.Dead && !mob.InBattle && DateTime.Now > mob.AgressiveCheckTime && nearbyTamers.Any())
+            {
+                foreach (var tamerId in nearbyTamers)
+                {
+                    var targetClient = Clients.FirstOrDefault(x => x.TamerId == tamerId);
+                    if (targetClient == null || targetClient.Tamer.Hidden || targetClient.Tamer.Dead || targetClient.Tamer.Riding)
+                        continue;
+
+                    var diff = UtilitiesFunctions.CalculateDistance(targetClient.Tamer.Partner.Location.X,
+                        mob.CurrentLocation.X,
+                        targetClient.Tamer.Partner.Location.Y,
+                        mob.CurrentLocation.Y);
+
+                    if (diff <= mob.ViewRange)
+                    {
+                        BroadcastForTargetTamers(mob.TamersViewing, new MobTinklePacket(mob.GeneralHandler).Serialize());
+                        BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOnPacket(mob.GeneralHandler).Serialize());
+                        BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOnPacket(targetClient.Partner.GeneralHandler).Serialize());
+
+                        mob.StartBattle(targetClient.Tamer);
+                        targetClient.Tamer.StartBattle(mob);
+
+                        break;
+                    }
+                }
+            }
+        }
+        public void AttackNearbyTamer(EventMobConfigModel mob, List<long> nearbyTamers, List<NpcColiseumAssetModel> npcAsset)
         {
             if (mob.ReactionType == DigimonReactionTypeEnum.Agressive && !mob.Dead && !mob.InBattle && DateTime.Now > mob.AgressiveCheckTime && nearbyTamers.Any())
             {
@@ -801,6 +1027,17 @@ namespace DigitalWorldOnline.Commons.Models.Map
                     SummonMobs.Add(mob);
                 }
             }
+        }
+
+        public void AddMobSumon(SummonMobModel mob)
+        {
+            if (NeedNewHandler(mob))
+                SetMobHandler(mob);
+
+            mob.SetInitialLocation();
+            mob.UpdateCurrentHp(mob.HPValue);
+
+            SummonMobs.Add(mob);
         }
 
         // ---------------------------------------------------------------------------------------

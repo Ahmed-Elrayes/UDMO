@@ -53,7 +53,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             if (arrIDX >= array.Length)
             {
-                _logger.Error($"Invalid array index for archievment {x}.");
+                _logger.Error($"Invalid array index for achievement {x}.");
                 throw new ArgumentOutOfRangeException("Invalid array index");
             }
 
@@ -68,13 +68,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             if (arrIDX >= array.Length)
             {
-                _logger.Error($"Invalid array index on set bit value for archievment {x}.");
+                _logger.Error($"Invalid array index on set bit value for achievement {x}.");
                 throw new ArgumentOutOfRangeException("Invalid array index on set bit value.");
             }
 
             if (bitValue != 0 && bitValue != 1)
             {
-                _logger.Error($"Invalid bit value. Only 0 or 1 are allowed for archievment {x}.");
+                _logger.Error($"Invalid bit value. Only 0 or 1 are allowed for achievement {x}.");
                 throw new ArgumentException("Invalid bit value. Only 0 or 1 are allowed.");
             }
 

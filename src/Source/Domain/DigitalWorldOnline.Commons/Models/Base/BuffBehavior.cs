@@ -89,7 +89,7 @@ namespace DigitalWorldOnline.Commons.Models
             }
         }
 
-        public void SetEndDate(DateTime EndDate) => EndDate = EndDate;
+        public void SetEndDate(DateTime endDate) => EndDate = endDate;
 
         /// <summary>
         /// Serializes the buff object.

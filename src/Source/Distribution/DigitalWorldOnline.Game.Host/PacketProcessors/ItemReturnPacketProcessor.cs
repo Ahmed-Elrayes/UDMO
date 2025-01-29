@@ -1,7 +1,9 @@
 ﻿using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Commons.Entities;
+using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
+using DigitalWorldOnline.Commons.Models.Digimon;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using MediatR;
@@ -32,10 +34,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var portableReturnPosition = packet.ReadInt();
             var npcId = packet.ReadInt();
             var itemSlot = packet.ReadInt();
+            var attributeExp = client.Tamer.Partner.GetAttributeExperience();
+
 
             var inventoryItem = client.Tamer.Inventory.FindItemBySlot(itemSlot);
             if (inventoryItem == null || inventoryItem.ItemId == 0 || inventoryItem.ItemInfo == null)
             {
+
                 client.Send(new SystemMessagePacket($"Invalid item at slot {itemSlot}."));
                 _logger.Warning($"Invalid item on slot {itemSlot} for tamer {client.TamerId} on returning.");
                 return;
@@ -56,11 +61,30 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             client.Tamer.Inventory.AddBits(totalGain);
             client.Tamer.Inventory.RemoveOrReduceItem(inventoryItem, inventoryItem.Amount, itemSlot);
+            if (attributeExp < 10000) ReturnEggAttribute(client,client.Tamer.Partner,totalGain);
 
+            await _sender.Send(new UpdateCharacterExperienceCommand(client.Tamer));
+            await _sender.Send(new UpdateDigimonExperienceCommand(client.Tamer.Partner));
             await _sender.Send(new UpdateItemCommand(inventoryItem));
             await _sender.Send(new UpdateItemListBitsCommand(client.Tamer.Inventory));
 
             client.Send(new ItemReturnPacket(totalGain, client.Tamer.Inventory.Bits));
+        }
+        private static void ReturnEggAttribute(GameClient client,DigimonModel partner,int totalGain)
+        {
+            if (partner.BaseInfo.Attribute == DigimonAttributeEnum.Data)
+            {
+                int attributeExp = totalGain / 100;
+                int currentExp = partner.GetAttributeExperience();
+                int maxExpGain = Math.Max(0,10000 - currentExp);
+
+                if (attributeExp > maxExpGain)
+                {
+                    attributeExp = maxExpGain;
+                }
+
+                partner.AttributeExperience.IncreaseAttributeExperience((short)attributeExp,DigimonAttributeEnum.Data);
+            }
         }
     }
 }

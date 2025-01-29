@@ -17,7 +17,7 @@ using DigitalWorldOnline.Commons.Packets.MapServer;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Commons.Writers;
 using DigitalWorldOnline.Game.Managers;
-using DigitalWorldOnline.Infraestructure.Migrations;
+using DigitalWorldOnline.Infrastructure.Migrations;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Linq;
@@ -35,7 +35,9 @@ namespace DigitalWorldOnline.GameHost
             stopwatch.Start();
 
             map.UpdateMapMobs();
-
+            //------------------------------------------------------------------------------------------------- EVENT MOBS
+            _eventManager.EventServer(this);
+            //-------------------------------------------------------------------------------------------------
             foreach (var mob in map.Mobs)
             {
                 if (!mob.AwaitingKillSpawn && DateTime.Now > mob.ViewCheckTime)
@@ -89,7 +91,7 @@ namespace DigitalWorldOnline.GameHost
 
             map.UpdateMapMobs(true);
 
-            foreach (var mob in map.SummonMobs)
+            foreach (var mob in map.SummonMobs.ToList())
             {
                 if (DateTime.Now > mob.ViewCheckTime)
                 {
@@ -112,31 +114,23 @@ namespace DigitalWorldOnline.GameHost
 
                                 var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == nearTamer);
 
-                                targetClient?.Send(new LoadMobsPacket(mob));
-
-                            }
-                            else
-                            {
-                                var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == nearTamer);
-
-                                targetClient?.Send(new LoadMobsPacket(mob, true));
-
+                                targetClient?.Send(new LoadMobsPacket(mob,true));
                             }
                         });
                     }
 
-                    var farTamers = map.ConnectedTamers.Select(x => x.Id).Except(nearTamers).ToList();
-
-                    farTamers.ForEach(farTamer =>
-                    {
-                        if (mob.TamersViewing.Contains(farTamer))
-                        {
-                            var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == farTamer);
-
-                            mob.TamersViewing.Remove(farTamer);
-                            targetClient?.Send(new UnloadMobsPacket(mob));
-                        }
-                    });
+                    // var farTamers = map.ConnectedTamers.Select(x => x.Id).Except(nearTamers).ToList();
+                    //
+                    // farTamers.ForEach(farTamer =>
+                    // {
+                    //     if (mob.TamersViewing.Contains(farTamer))
+                    //     {
+                    //         var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == farTamer);
+                    //
+                    //         mob.TamersViewing.Remove(farTamer);
+                    //         targetClient?.Send(new UnloadMobsPacket(mob));
+                    //     }
+                    // });
                 }
 
                 if (!mob.CanAct)
@@ -146,6 +140,7 @@ namespace DigitalWorldOnline.GameHost
 
                 mob.SetNextAction();
             }
+
             stopwatch.Stop();
 
             var totalTime = stopwatch.Elapsed.TotalMilliseconds;
@@ -161,14 +156,22 @@ namespace DigitalWorldOnline.GameHost
                 case MobActionEnum.CrowdControl:
                     {
                         var debuff = mob.DebuffList.ActiveBuffs.Where(buff =>
-                                buff.BuffInfo.SkillInfo.Apply.Any(apply =>
-                                    apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl
-                                )
-                            ).ToList();
+                            buff.BuffInfo.SkillInfo.Apply.Any(apply => apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl)).ToList();
+
+                        var dot = mob.DebuffList.ActiveBuffs.Where(buff =>
+                            buff.BuffInfo.SkillInfo.Apply.Any(apply =>
+                            apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.DOT ||
+                            apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.DOT2
+                            )).ToList();
 
                         if (debuff.Any())
                         {
                             CheckDebuff(map, mob, debuff);
+                            break;
+                        }
+                        else if (dot.Any())
+                        {
+                            CheckDotDebuff(map, mob, dot);
                             break;
                         }
                     }
@@ -178,7 +181,8 @@ namespace DigitalWorldOnline.GameHost
                     {
                         mob.Reset();
                         mob.ResetLocation();
-                        if (mob.RespawnInterval > 3599) CallDiscordWarnings($"[SPAWN] {mob.Name} nasceu em {map.Name} CH{map.Channel}.", "81ffcf");
+                        if (mob.RespawnInterval > 3599)
+                            CallDiscordWarnings($"[SPAWN] {mob.Name} was spawned {map.Name} CH{map.Channel}.", "81ffcf");
                     }
                     break;
 
@@ -189,6 +193,7 @@ namespace DigitalWorldOnline.GameHost
                             mob.UpdateDeathAndResurrectionTime();
                             SaveMobToDatabase(mob);
                         }
+
                         if (mob.RespawnInterval > 3599)
                         {
                             TimeSpan time = TimeSpan.FromSeconds(mob.RespawnInterval);
@@ -233,10 +238,10 @@ namespace DigitalWorldOnline.GameHost
                         if (mob.DebuffList.ActiveBuffs.Count > 0)
                         {
                             var debuff = mob.DebuffList.ActiveBuffs.Where(buff =>
-                                 buff.BuffInfo.SkillInfo.Apply.Any(apply =>
-                                     apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl
-                                 )
-                             ).ToList();
+                                buff.BuffInfo.SkillInfo.Apply.Any(apply =>
+                                    apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl
+                                )
+                            ).ToList();
 
                             if (debuff.Any())
                             {
@@ -253,22 +258,26 @@ namespace DigitalWorldOnline.GameHost
 
                 case MobActionEnum.GiveUp:
                     {
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new SyncConditionPacket(mob.GeneralHandler, ConditionEnum.Immortal).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new SyncConditionPacket(mob.GeneralHandler, ConditionEnum.Immortal).Serialize());
                         mob.ResetLocation();
                         map.BroadcastForTargetTamers(mob.TamersViewing, new MobRunPacket(mob).Serialize());
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOffPacket(mob.GeneralHandler).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new SetCombatOffPacket(mob.GeneralHandler).Serialize());
 
                         foreach (var targetTamer in mob.TargetTamers)
                         {
                             if (targetTamer.TargetMobs.Count <= 1)
                             {
                                 targetTamer.StopBattle();
-                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
+                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id,
+                                    new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
                             }
                         }
 
                         mob.Reset(true);
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new UpdateCurrentHPRatePacket(mob.GeneralHandler, mob.CurrentHpRate).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new UpdateCurrentHPRatePacket(mob.GeneralHandler, mob.CurrentHpRate).Serialize());
                     }
                     break;
 
@@ -277,11 +286,7 @@ namespace DigitalWorldOnline.GameHost
                         if (mob.DebuffList.ActiveBuffs.Count > 0)
                         {
                             var debuff = mob.DebuffList.ActiveBuffs.Where(buff =>
-                                  buff.BuffInfo.SkillInfo.Apply.Any(apply =>
-                                      apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl
-                                  )
-                              ).ToList();
-
+                                buff.BuffInfo.SkillInfo.Apply.Any(apply => apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl)).ToList();
 
                             if (debuff.Any())
                             {
@@ -359,7 +364,8 @@ namespace DigitalWorldOnline.GameHost
                         if (mob.DebuffList.ActiveBuffs.Count > 0)
                         {
                             var debuff = mob.DebuffList.ActiveBuffs.Where(buff =>
-                                buff.BuffInfo.SkillInfo.Apply.Any(apply => apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl)).ToList();
+                                buff.BuffInfo.SkillInfo.Apply.Any(apply =>
+                                    apply.Attribute == Commons.Enums.SkillCodeApplyAttributeEnum.CrowdControl)).ToList();
 
                             if (debuff.Any())
                             {
@@ -393,10 +399,10 @@ namespace DigitalWorldOnline.GameHost
                         if (!mob.Dead && !mob.Chasing && mob.TargetAlive)
                         {
                             var diff = UtilitiesFunctions.CalculateDistance(
-                               mob.CurrentLocation.X,
-                               mob.Target.Location.X,
-                               mob.CurrentLocation.Y,
-                               mob.Target.Location.Y);
+                                mob.CurrentLocation.X,
+                                mob.Target.Location.X,
+                                mob.CurrentLocation.Y,
+                                mob.Target.Location.Y);
 
                             if (diff <= 1900)
                             {
@@ -404,7 +410,6 @@ namespace DigitalWorldOnline.GameHost
                                     break;
 
                                 map.SkillTarget(mob, targetSkill, _assets.NpcColiseum);
-
 
 
                                 if (mob.Target != null)
@@ -427,7 +432,8 @@ namespace DigitalWorldOnline.GameHost
                                 if (targetTamer.TargetMobs.Count <= 1)
                                 {
                                     targetTamer.StopBattle();
-                                    map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
+                                    map.BroadcastForTamerViewsAndSelf(targetTamer.Id,
+                                        new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
                                 }
                             }
 
@@ -437,6 +443,13 @@ namespace DigitalWorldOnline.GameHost
                     break;
             }
         }
+
+        private void CallDiscordWarnings(string v1, string v2)
+        {
+            // throw new NotImplementedException();
+        }
+
+        // -----------------------------------------------------------------------------------------
 
         private static void CheckDebuff(GameMap map, MobConfigModel mob, List<MobDebuffModel> debuffs)
         {
@@ -457,14 +470,13 @@ namespace DigitalWorldOnline.GameHost
 
                         if (debuffs.Count == 0)
                         {
-
-                            map.BroadcastForTargetTamers(mob.TamersViewing, new RemoveBuffPacket(mob.GeneralHandler, debuff.BuffId, 1).Serialize());
+                            map.BroadcastForTargetTamers(mob.TamersViewing,
+                                new RemoveBuffPacket(mob.GeneralHandler, debuff.BuffId, 1).Serialize());
 
                             mob.DebuffList.Buffs.Remove(debuff);
 
                             mob.UpdateCurrentAction(MobActionEnum.Wait);
                             mob.SetNextAction();
-
                         }
                         else
                         {
@@ -472,14 +484,72 @@ namespace DigitalWorldOnline.GameHost
                         }
                     }
                 }
-
             }
-
         }
+
+        private static void CheckDotDebuff(GameMap map, MobConfigModel mob, List<MobDebuffModel> debuffs)
+        {
+            //Console.WriteLine($"CheckDotDebuff (MapServer)!! {mob.CurrentAction}");
+
+            if (debuffs != null)
+            {
+                for (int i = 0; i < debuffs.Count; i++)
+                {
+                    var debuff = debuffs[i];
+
+                    if (debuff.DebuffExpired && mob.CurrentAction == MobActionEnum.CrowdControl)
+                    {
+                        debuffs.Remove(debuff);
+
+                        if (debuffs.Count == 0)
+                        {
+                            map.BroadcastForTargetTamers(mob.TamersViewing,
+                                new RemoveBuffPacket(mob.GeneralHandler, debuff.BuffId, 1).Serialize());
+
+                            mob.DebuffList.Buffs.Remove(debuff);
+
+                            mob.UpdateCurrentAction(MobActionEnum.Wait);
+                            mob.SetNextAction();
+                        }
+                        else
+                        {
+                            mob.DebuffList.Buffs.Remove(debuff);
+                        }
+                    }
+                    else if (!debuff.DebuffExpired && mob.CurrentAction == MobActionEnum.CrowdControl)
+                    {
+                        if (!mob.Dead && !mob.Chasing && mob.TargetAlive)
+                        {
+                            var diff = UtilitiesFunctions.CalculateDistance(
+                                mob.CurrentLocation.X, mob.Target.Location.X,
+                                mob.CurrentLocation.Y, mob.Target.Location.Y);
+
+                            if (diff <= 1900)
+                            {
+                                if (mob.Target != null)
+                                {
+                                    mob.UpdateCurrentAction(MobActionEnum.Wait);
+                                    mob.SetNextAction();
+                                }
+                            }
+                            else
+                            {
+                                map.ChaseTarget(mob);
+                            }
+                        }
+
+                    }
+
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------------------------------
 
         private static void TargetKillSpawn(GameMap map, MobConfigModel mob)
         {
-            var targetKillSpawn = map.KillSpawns.FirstOrDefault(x => x.TargetMobs.Any(x => x.TargetMobType == mob.Type));
+            var targetKillSpawn = map.KillSpawns.FirstOrDefault(x =>
+                x.TargetMobs.Any(mobConfigModel => mobConfigModel.TargetMobType == mob.Type));
 
             if (targetKillSpawn != null)
             {
@@ -500,22 +570,23 @@ namespace DigitalWorldOnline.GameHost
 
         private static void SourceKillSpawn(GameMap map, MobConfigModel mob)
         {
-            var sourceMobKillSpawn = map.KillSpawns.FirstOrDefault(ks => ks.SourceMobs.Any(sm => sm.SourceMobType == mob.Type));
+            var sourceMobKillSpawn =
+                map.KillSpawns.FirstOrDefault(ks => ks.SourceMobs.Any(sm => sm.SourceMobType == mob.Type));
 
             if (sourceMobKillSpawn == null)
                 return;
 
             var sourceKillSpawn = sourceMobKillSpawn.SourceMobs.FirstOrDefault(x => x.SourceMobType == mob.Type);
 
-            if (sourceKillSpawn != null && sourceKillSpawn.CurrentSourceMobRequiredAmount <= sourceKillSpawn.SourceMobRequiredAmount)
+            if (sourceKillSpawn != null && sourceKillSpawn.CurrentSourceMobRequiredAmount <=
+                sourceKillSpawn.SourceMobRequiredAmount)
             {
                 sourceKillSpawn.DecreaseCurrentSourceMobAmount();
 
                 if (sourceMobKillSpawn.ShowOnMinimap && sourceKillSpawn.CurrentSourceMobRequiredAmount <= 10)
                 {
-
-                    map.BroadcastForMap(new KillSpawnMinimapNotifyPacket(sourceKillSpawn.SourceMobType, sourceKillSpawn.CurrentSourceMobRequiredAmount).Serialize());
-
+                    map.BroadcastForMap(new KillSpawnMinimapNotifyPacket(sourceKillSpawn.SourceMobType,
+                        sourceKillSpawn.CurrentSourceMobRequiredAmount).Serialize());
                 }
 
                 if (sourceMobKillSpawn.Spawn())
@@ -523,12 +594,13 @@ namespace DigitalWorldOnline.GameHost
                     foreach (var targetMob in sourceMobKillSpawn.TargetMobs)
                     {
                         //TODO: para todos os canais (apenas do mapa)
-                        map.BroadcastForMap(new KillSpawnChatNotifyPacket(map.MapId, map.Channel, targetMob.TargetMobType).Serialize());
+                        map.BroadcastForMap(
+                            new KillSpawnChatNotifyPacket(map.MapId, map.Channel, targetMob.TargetMobType).Serialize());
 
-                        map.Mobs.Where(x => x.Type == targetMob.TargetMobType)?.ToList().ForEach(targetMob =>
+                        map.Mobs.Where(x => x.Type == targetMob.TargetMobType)?.ToList().ForEach(mobConfigModel =>
                         {
-                            targetMob.SetRespawn(true);
-                            targetMob.SetAwaitingKillSpawn(false);
+                            mobConfigModel.SetRespawn(true);
+                            mobConfigModel.SetAwaitingKillSpawn(false);
                         });
                     }
                 }
@@ -567,14 +639,19 @@ namespace DigitalWorldOnline.GameHost
 
                         if (goalIndex != -1)
                         {
-                            var currentGoalValue = tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId, goalIndex);
+                            var currentGoalValue =
+                                tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId, goalIndex);
                             if (currentGoalValue < questInfo.QuestGoals[goalIndex].GoalAmount)
                             {
                                 currentGoalValue++;
-                                tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId, goalIndex, currentGoalValue);
-                                var questToUpdate = tamer.Progress.InProgressQuestData.FirstOrDefault(x => x.QuestId == questInProgress.QuestId);
+                                tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId, goalIndex,
+                                    currentGoalValue);
+                                var questToUpdate =
+                                    tamer.Progress.InProgressQuestData.FirstOrDefault(x =>
+                                        x.QuestId == questInProgress.QuestId);
 
-                                targetClient.Send(new QuestGoalUpdatePacket(questInProgress.QuestId, (byte)goalIndex, currentGoalValue));
+                                targetClient.Send(new QuestGoalUpdatePacket(questInProgress.QuestId, (byte)goalIndex,
+                                    currentGoalValue));
                                 _sender.Send(new UpdateCharacterInProgressCommand(questToUpdate));
                             }
                         }
@@ -587,10 +664,7 @@ namespace DigitalWorldOnline.GameHost
                     }
                 }
 
-                giveUpList.ForEach(giveUp =>
-                {
-                    tamer.Progress.RemoveQuest(giveUp);
-                });
+                giveUpList.ForEach(giveUp => { tamer.Progress.RemoveQuest(giveUp); });
 
                 var party = _partyManager.FindParty(targetClient.TamerId);
                 if (party != null && !partyIdList.Contains(party.Id))
@@ -625,31 +699,34 @@ namespace DigitalWorldOnline.GameHost
 
                                 if (goalIndex != -1)
                                 {
-                                    var currentGoalValue = partyMemberClient.Tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId, goalIndex);
+                                    var currentGoalValue =
+                                        partyMemberClient.Tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId,
+                                            goalIndex);
                                     if (currentGoalValue < questInfo.QuestGoals[goalIndex].GoalAmount)
                                     {
                                         currentGoalValue++;
-                                        partyMemberClient.Tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId, goalIndex, currentGoalValue);
-                                        var questToUpdate = partyMemberClient.Tamer.Progress.InProgressQuestData.FirstOrDefault(x => x.QuestId == questInProgress.QuestId);
+                                        partyMemberClient.Tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId,
+                                            goalIndex, currentGoalValue);
+                                        var questToUpdate =
+                                            partyMemberClient.Tamer.Progress.InProgressQuestData.FirstOrDefault(x =>
+                                                x.QuestId == questInProgress.QuestId);
 
-                                        partyMemberClient.Send(new QuestGoalUpdatePacket(questInProgress.QuestId, (byte)goalIndex, currentGoalValue));
+                                        partyMemberClient.Send(new QuestGoalUpdatePacket(questInProgress.QuestId,
+                                            (byte)goalIndex, currentGoalValue));
                                         _sender.Send(new UpdateCharacterInProgressCommand(questToUpdate));
-
                                     }
                                 }
                             }
                             else
                             {
                                 _logger.Error($"Unknown quest id {questInProgress.QuestId}.");
-                                partyMemberClient.Send(new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
+                                partyMemberClient.Send(
+                                    new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
                                 giveUpList.Add(questInProgress.QuestId);
                             }
                         }
 
-                        giveUpList.ForEach(giveUp =>
-                        {
-                            partyMemberClient.Tamer.Progress.RemoveQuest(giveUp);
-                        });
+                        giveUpList.ForEach(giveUp => { partyMemberClient.Tamer.Progress.RemoveQuest(giveUp); });
                     }
                 }
             }
@@ -670,7 +747,113 @@ namespace DigitalWorldOnline.GameHost
                 DropReward(map, mob);
         }
 
-        private void ExperienceReward(GameMap map, MobConfigModel mob)
+        private long BonusPartnerExp(GameMap map,MobConfigModel mob)
+        {
+            long totalPartnerExp = 0;
+
+            foreach (var tamer in mob.TargetTamers)
+            {
+                var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == tamer?.Id);
+                if (targetClient == null)
+                    continue;
+
+                double expBonusMultiplier = tamer.BonusEXP / 100.0 + targetClient.ServerExperience / 100.0;
+                double levelDifference = mob.Level - tamer.Partner.Level;
+
+                long partnerExpToReceive = (long)CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.DigimonExperience);
+                long finalExp = (long)(partnerExpToReceive * expBonusMultiplier);
+
+                totalPartnerExp += (finalExp - partnerExpToReceive); 
+
+
+            }
+
+            return totalPartnerExp;
+        }
+
+
+
+
+        private long BonusTamerExp(GameMap map,SummonMobModel mob)
+        {
+            long totalTamerExp = 0; 
+
+            foreach (var tamer in mob.TargetTamers)
+            {
+                var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == tamer?.Id);
+                if (targetClient == null)
+                    continue;
+
+
+                double expBonusMultiplier = tamer.BonusEXP / 100.0 + targetClient.ServerExperience / 100.0;
+                double levelDifference = mob.Level - tamer.Partner.Level;
+
+
+                long tamerExpToReceive = (long)CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.TamerExperience);
+
+                long finalExp = (long)(tamerExpToReceive * expBonusMultiplier);
+
+
+                totalTamerExp += (finalExp - tamerExpToReceive);
+            }
+
+            return totalTamerExp;
+        }
+
+
+        private long BonusPartnerExp(GameMap map,SummonMobModel mob)
+        {
+            long totalPartnerExp = 0; 
+
+            foreach (var tamer in mob.TargetTamers)
+            {
+                var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == tamer?.Id);
+                if (targetClient == null)
+                    continue;
+
+                double expBonusMultiplier = tamer.BonusEXP / 100.0 + targetClient.ServerExperience / 100.0;
+                double levelDifference = mob.Level - tamer.Partner.Level;
+
+                long partnerExpToReceive = (long)CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.DigimonExperience);
+                long finalExp = (long)(partnerExpToReceive * expBonusMultiplier);
+
+   
+
+                totalPartnerExp += (finalExp - partnerExpToReceive); 
+
+
+            }
+
+            return totalPartnerExp;
+        }
+
+
+
+
+        private long BonusTamerExp(GameMap map,MobConfigModel mob)
+        {
+            long totalTamerExp = 0; 
+
+            foreach (var tamer in mob.TargetTamers)
+            {
+                var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == tamer?.Id);
+                if (targetClient == null)
+                    continue;
+
+                double expBonusMultiplier = tamer.BonusEXP / 100.0 + targetClient.ServerExperience / 100.0;
+
+                long tamerExpToReceive = (long)CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.TamerExperience);
+
+                long finalExp = (long)(tamerExpToReceive * expBonusMultiplier);
+
+                totalTamerExp += (finalExp - tamerExpToReceive);
+            }
+
+            return totalTamerExp;
+        }
+
+
+        private void ExperienceReward(GameMap map,MobConfigModel mob)
         {
             if (mob.ExpReward == null)
                 return;
@@ -680,92 +863,62 @@ namespace DigitalWorldOnline.GameHost
             foreach (var tamer in mob.TargetTamers)
             {
                 var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == tamer?.Id);
-
                 if (targetClient == null)
                     continue;
 
-                // ------------------------------------------------------------------------------------------------------
-
-                long baseTamerExp = mob.ExpReward.TamerExperience;      // Mob Tamer Exp
-                long basePartnerExp = mob.ExpReward.DigimonExperience;  // Mob Digimon Exp
-
-                var serverMultiplier = targetClient.ServerExperience / 100.0;   // Server Exp Multiplier
-                var playerMultiplier = tamer.BonusEXP / 100.0;                  // Bonus Exp (Booster) Multiplier
-
-                double expBonusMultiplier = playerMultiplier + serverMultiplier;
-
-                var tamerExp = (long)(baseTamerExp * serverMultiplier);     // Tamer Server Exp
-                var bonusExp = (long)(baseTamerExp * playerMultiplier);     // Tamer Booster Exp
-
-                var digimonExp = (long)(basePartnerExp * serverMultiplier);         // Digimon Server Exp
-                var bonusDigimonExp = (long)(basePartnerExp * playerMultiplier);    // Digimon Booster Exp
-
-                // ------------------------------------------------------------------------------------------------------
-
-                var tamerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level, mob.Level, baseTamerExp) * expBonusMultiplier);
-
-                if (CalculateExperience(tamer.Partner.Level, mob.Level, baseTamerExp) == 0)
-                {
+                var tamerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.TamerExperience));
+                if (CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.TamerExperience) == 0)
                     tamerExpToReceive = 0;
-                    tamerExp = 0;
-                    bonusExp = 0;
-                }
 
-                var tamerResult = ReceiveTamerExp(targetClient.Tamer, tamerExpToReceive);
+                if (tamerExpToReceive > 100) tamerExpToReceive += UtilitiesFunctions.RandomInt(-35,45);
+                var tamerResult = ReceiveTamerExp(targetClient.Tamer,tamerExpToReceive);
 
-                if (bonusExp > 0) tamerExp = tamerExp - bonusExp;
+                var partnerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.DigimonExperience));
 
-                // ------------------------------------------------------------------------------------------------------
 
-                var partnerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level, mob.Level, basePartnerExp) * expBonusMultiplier);
 
-                if (CalculateExperience(tamer.Partner.Level, mob.Level, basePartnerExp) == 0)
-                {
+                if (CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.DigimonExperience) == 0)
                     partnerExpToReceive = 0;
-                    digimonExp = 0;
-                    bonusDigimonExp = 0;
-                }
 
-                var partnerResult = ReceivePartnerExp(targetClient.Partner, mob, partnerExpToReceive);
+                if (partnerExpToReceive > 100) partnerExpToReceive += UtilitiesFunctions.RandomInt(-35,45);
+                var partnerResult = ReceivePartnerExp(targetClient,targetClient.Partner,mob,partnerExpToReceive);
 
-                if (bonusDigimonExp > 0) digimonExp = digimonExp - bonusDigimonExp;
+                var totalTamerExp = BonusTamerExp(map,mob);
 
-                // ------------------------------------------------------------------------------------------------------
+                var bonusTamerExp = ReceiveBonusTamerExp(targetClient.Tamer,totalTamerExp);
 
-                if (targetClient.Partner.CurrentEvolution.SkillMastery < 30)
-                {
-                    var skillExp = mob.ExpReward.SkillExperience * (int)serverMultiplier;
-                    tamer.Partner.ReceiveSkillExp(skillExp);
-                }
+                var totalPartnerExp = BonusPartnerExp(map,mob);
 
-                // ------------------------------------------------------------------------------------------------------
+                var bonusPartnerExp = ReceiveBonusPartnerExp(targetClient.Partner,mob,totalPartnerExp);
+
 
                 targetClient.Send(
                     new ReceiveExpPacket(
-                        tamerExp,                               // Tamer Exp (BaseExp * ServerExp)
-                        bonusExp,                               // Tamer Bonus Exp (BaseExp * PlayerBonusExp)
-                        targetClient.Tamer.CurrentExperience,   // Final Tamer Exp
-                        targetClient.Partner.GeneralHandler,    // -- Partner Handler
-                        digimonExp,                             // Partner Exp
-                        bonusDigimonExp,                        // Bonus Partner Exp
-                        targetClient.Partner.CurrentExperience, // Final Partner Exp
-                        targetClient.Partner.CurrentEvolution.SkillExperience   // Skill Exp
+                        tamerExpToReceive,
+                        totalTamerExp,
+                        targetClient.Tamer.CurrentExperience,
+                        targetClient.Partner.GeneralHandler,
+                        partnerExpToReceive,
+                        totalPartnerExp,
+                        targetClient.Partner.CurrentExperience,
+                        targetClient.Partner.CurrentEvolution.SkillExperience
                     )
                 );
 
-                SkillExpReward(map, targetClient);
+                SkillExpReward(map,targetClient);
 
                 if (tamerResult.LevelGain > 0 || partnerResult.LevelGain > 0)
                 {
                     targetClient.Send(new UpdateStatusPacket(targetClient.Tamer));
 
-                    map.BroadcastForTamerViewsAndSelf(targetClient.TamerId, new UpdateMovementSpeedPacket(targetClient.Tamer).Serialize());
+                    map.BroadcastForTamerViewsAndSelf(targetClient.TamerId,
+                        new UpdateMovementSpeedPacket(targetClient.Tamer).Serialize());
                 }
 
                 _sender.Send(new UpdateCharacterExperienceCommand(tamer));
                 _sender.Send(new UpdateDigimonExperienceCommand(tamer.Partner));
 
-                PartyExperienceReward(map, mob, partyIdList, targetClient, tamerExpToReceive, tamerResult, partnerExpToReceive, partnerResult);
+                PartyExperienceReward(map,mob,partyIdList,targetClient,tamerExpToReceive,tamerResult,partnerExpToReceive,partnerResult);
             }
 
             partyIdList.Clear();
@@ -794,16 +947,17 @@ namespace DigitalWorldOnline.GameHost
         private void SkillExpReward(GameMap map, GameClient? targetClient)
         {
             var ExpNeed = int.MaxValue;
-            var evolutionType = _assets.DigimonBaseInfo.First(x => x.Type == targetClient.Partner.CurrentEvolution.Type).EvolutionType;
+            var evolutionType = _assets.DigimonBaseInfo.First(x => x.Type == targetClient.Partner.CurrentEvolution.Type)
+                .EvolutionType;
 
             ExpNeed = SkillExperienceTable(evolutionType, targetClient.Partner.CurrentEvolution.SkillMastery);
 
-            if (targetClient.Partner.CurrentEvolution.SkillMastery < 30)    // Skill Mastery bloqueia exp no 30
+            if (targetClient.Partner.CurrentEvolution.SkillMastery < 30) // Skill Mastery bloqueia exp no 30
             {
                 if (targetClient.Partner.CurrentEvolution.SkillExperience >= ExpNeed)
                 {
-                    targetClient.Partner.ReceiveSkillPoint();   // Increase skill point by 2
-                    targetClient.Partner.ResetSkillExp(0);      // Reset Skill exp to 0
+                    targetClient.Partner.ReceiveSkillPoint(); // Increase skill point by 2
+                    targetClient.Partner.ResetSkillExp(0); // Reset Skill exp to 0
 
                     var evolutionIndex = targetClient.Partner.Evolutions.IndexOf(targetClient.Partner.CurrentEvolution);
 
@@ -829,13 +983,14 @@ namespace DigitalWorldOnline.GameHost
             MobConfigModel mob,
             List<int> partyIdList,
             GameClient? targetClient,
-             long tamerExpToReceive,
-             ReceiveExpResult tamerResult,
-             long partnerExpToReceive,
-             ReceiveExpResult partnerResult)
+            long tamerExpToReceive,
+            ReceiveExpResult tamerResult,
+            long partnerExpToReceive,
+            ReceiveExpResult partnerResult)
         {
-            var party = _partyManager.FindParty(targetClient.TamerId);
+            if (targetClient == null) throw new ArgumentNullException(nameof(targetClient));
 
+            var party = _partyManager.FindParty(targetClient.TamerId);
             if (party != null && !partyIdList.Contains(party.Id))
             {
                 partyIdList.Add(party.Id);
@@ -843,54 +998,30 @@ namespace DigitalWorldOnline.GameHost
                 foreach (var partyMemberId in party.Members.Values.Select(x => x.Id))
                 {
                     var partyMemberClient = map.Clients.FirstOrDefault(x => x.TamerId == partyMemberId);
-
                     if (partyMemberClient == null || partyMemberId == targetClient.TamerId)
                         continue;
 
-                    // ------------------------------------------------------------------------------------------------------
+                    var totalTamerExp = BonusTamerExp(map,mob) / 2;
+                    var bonusTamerExp = ReceiveBonusTamerExp(partyMemberClient.Tamer,totalTamerExp);
 
-                    // Multiplicadores de experiência
-                    var serverMultiplier = partyMemberClient.ServerExperience / 100.0;
-                    var playerMultiplier = partyMemberClient.Tamer.BonusEXP / 100.0;
-
-                    // Aplicar o multiplicador de 80% para membros que não mataram o mob
-                    long baseTamerExp = mob.ExpReward.TamerExperience;
-                    long basePartnerExp = mob.ExpReward.DigimonExperience;
-
-                    if (partyMemberClient.TamerId != targetClient.TamerId)
-                    {
-                        baseTamerExp = (long)(baseTamerExp * 0.80);
-                        basePartnerExp = (long)(basePartnerExp * 0.80);
-                    }
-
-                    // Aplicar o multiplicador de bônus de experiência
-                    double expBonusMultiplier = playerMultiplier + serverMultiplier;
-
-                    tamerExpToReceive = (long)(baseTamerExp * expBonusMultiplier);
-                    partnerExpToReceive = (long)(basePartnerExp * expBonusMultiplier);
-
-                    //if (tamerExpToReceive > 100) tamerExpToReceive += UtilitiesFunctions.RandomInt(-15, 15);
-                    //if (partnerExpToReceive > 100) partnerExpToReceive += UtilitiesFunctions.RandomInt(-15, 15);
-
-                    tamerResult = ReceiveTamerExp(partyMemberClient.Tamer, tamerExpToReceive);
-                    partnerResult = ReceivePartnerExp(partyMemberClient.Partner, mob, partnerExpToReceive);
-
-                    // ------------------------------------------------------------------------------------------------------
+                    var totalPartnerExp = BonusPartnerExp(map,mob) / 2;
+                    var localPartnerResult = ReceivePartnerExp(targetClient,partyMemberClient.Partner,mob,totalPartnerExp);
 
                     partyMemberClient.Send(
                         new PartyReceiveExpPacket(
-                            tamerExpToReceive,              // Tamer Exp
-                            0,                              // Bonus Exp
+                            tamerExpToReceive,
+                            totalTamerExp,//TODO: obter os bonus
                             partyMemberClient.Tamer.CurrentExperience,
                             partyMemberClient.Partner.GeneralHandler,
-                            partnerExpToReceive,            // Partner Exp
-                            0,                              // Bonus Partner Exp
+                            partnerExpToReceive,
+                            totalPartnerExp,//TODO: obter os bonus
                             partyMemberClient.Partner.CurrentExperience,
                             partyMemberClient.Partner.CurrentEvolution.SkillExperience,
-                            targetClient.Tamer.Name
+                            targetClient.Tamer.Name            // partySourceName
                         ));
 
-                    if (tamerResult.LevelGain > 0 || partnerResult.LevelGain > 0)
+
+                    if (tamerResult.LevelGain > 0 || localPartnerResult.LevelGain > 0)
                     {
                         targetClient.Send(new UpdateStatusPacket(targetClient.Tamer));
 
@@ -901,10 +1032,6 @@ namespace DigitalWorldOnline.GameHost
                     await _sender.Send(new UpdateCharacterExperienceCommand(partyMemberClient.Tamer));
                     await _sender.Send(new UpdateDigimonExperienceCommand(partyMemberClient.Partner));
                 }
-            }
-            else
-            {
-                //_logger.Information($"Exp gained without party");
             }
         }
 
@@ -919,7 +1046,6 @@ namespace DigitalWorldOnline.GameHost
            ReceiveExpResult partnerResult)
         {
             var party = _partyManager.FindParty(targetClient.TamerId);
-
             if (party != null && !partyIdList.Contains(party.Id))
             {
                 partyIdList.Add(party.Id);
@@ -927,46 +1053,26 @@ namespace DigitalWorldOnline.GameHost
                 foreach (var partyMemberId in party.Members.Values.Select(x => x.Id))
                 {
                     var partyMemberClient = map.Clients.FirstOrDefault(x => x.TamerId == partyMemberId);
-
                     if (partyMemberClient == null || partyMemberId == targetClient.TamerId)
                         continue;
 
-                    // ------------------------------------------------------------------------------------------------------
+                    var totalTamerExp = BonusTamerExp(map,mob) / 2;
+                    var bonusTamerExp = ReceiveBonusTamerExp(partyMemberClient.Tamer,totalTamerExp);
 
-                    // Multiplicadores de experiência
-                    var serverMultiplier = partyMemberClient.ServerExperience / 100.0;
-                    var playerMultiplier = partyMemberClient.Tamer.BonusEXP / 100.0;
-
-                    // Aplicar o multiplicador de 80% para membros que não mataram o mob
-                    long baseTamerExp = mob.ExpReward.TamerExperience;
-                    long basePartnerExp = mob.ExpReward.DigimonExperience;
-
-                    if (partyMemberClient.TamerId != targetClient.TamerId)
-                    {
-                        baseTamerExp = (long)(baseTamerExp * 0.80);
-                        basePartnerExp = (long)(basePartnerExp * 0.80);
-                    }
-
-                    // Aplicar o multiplicador de bônus de experiência
-                    double expBonusMultiplier = playerMultiplier + serverMultiplier;
-
-                    tamerExpToReceive = (long)(baseTamerExp * expBonusMultiplier);
-                    partnerExpToReceive = (long)(basePartnerExp * expBonusMultiplier);
-
-                    tamerResult = ReceiveTamerExp(partyMemberClient.Tamer, tamerExpToReceive);
-                    partnerResult = ReceivePartnerExp(partyMemberClient.Partner, mob, partnerExpToReceive);
+                    var totalPartnerExp = BonusPartnerExp(map,mob) / 2;
+                    var localPartnerResult = ReceivePartnerExp(targetClient,partyMemberClient.Partner,mob,totalPartnerExp);
 
                     partyMemberClient.Send(
                         new PartyReceiveExpPacket(
                             tamerExpToReceive,
-                            0,
+                            totalTamerExp,//TODO: obter os bonus
                             partyMemberClient.Tamer.CurrentExperience,
                             partyMemberClient.Partner.GeneralHandler,
                             partnerExpToReceive,
-                            0,
+                            totalPartnerExp,//TODO: obter os bonus
                             partyMemberClient.Partner.CurrentExperience,
                             partyMemberClient.Partner.CurrentEvolution.SkillExperience,
-                            targetClient.Tamer.Name
+                            targetClient.Tamer.Name            // partySourceName
                         ));
 
                     if (tamerResult.LevelGain > 0 || partnerResult.LevelGain > 0)
@@ -1009,8 +1115,10 @@ namespace DigitalWorldOnline.GameHost
                     targetClient.Tamer.Inventory.AddBits(amount);
 
                     _sender.Send(new UpdateItemsCommand(targetClient.Tamer.Inventory));
-                    _sender.Send(new UpdateItemListBitsCommand(targetClient.Tamer.Inventory.Id, targetClient.Tamer.Inventory.Bits));
-                    _logger.Verbose($"Character {targetClient.TamerId} aquired {amount} bits from mob {mob.Id} with magnetic aura {targetClient.Tamer.Aura.ItemId}.");
+                    _sender.Send(new UpdateItemListBitsCommand(targetClient.Tamer.Inventory.Id,
+                        targetClient.Tamer.Inventory.Bits));
+                    _logger.Verbose(
+                        $"Character {targetClient.TamerId} aquired {amount} bits from mob {mob.Id} with magnetic aura {targetClient.Tamer.Aura.ItemId}.");
                 }
                 else
                 {
@@ -1061,8 +1169,10 @@ namespace DigitalWorldOnline.GameHost
 
                             if (newItem.ItemInfo == null)
                             {
-                                _logger.Warning($"No item info found with ID {itemDrop.ItemId} for tamer {targetClient.Tamer.Id}.");
-                                targetClient.Send(new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
+                                _logger.Warning(
+                                    $"No item info found with ID {itemDrop.ItemId} for tamer {targetClient.Tamer.Id}.");
+                                targetClient.Send(
+                                    new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
                                 continue;
                             }
 
@@ -1074,7 +1184,8 @@ namespace DigitalWorldOnline.GameHost
                             {
                                 targetClient.Send(new ReceiveItemPacket(itemClone, InventoryTypeEnum.Inventory));
                                 _sender.Send(new UpdateItemsCommand(targetClient.Tamer.Inventory));
-                                _logger.Verbose($"Character {targetClient.TamerId} aquired {newItem.ItemId} x{newItem.Amount} from " +
+                                _logger.Verbose(
+                                    $"Character {targetClient.TamerId} aquired {newItem.ItemId} x{newItem.Amount} from " +
                                     $"mob {mob.Id} with magnetic aura {targetClient.Tamer.Aura.ItemId}.");
                             }
                             else
@@ -1183,23 +1294,28 @@ namespace DigitalWorldOnline.GameHost
                                 if (goalIndex != -1)
                                 {
                                     var newItem = new ItemModel();
-                                    newItem.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == itemDrop.ItemId));
+                                    newItem.SetItemInfo(
+                                        _assets.ItemInfo.FirstOrDefault(x => x.ItemId == itemDrop.ItemId));
 
                                     if (newItem.ItemInfo == null)
                                     {
-                                        _logger.Warning($"No item info found with ID {itemDrop.ItemId} for tamer {tamer.Id}.");
-                                        targetClient.Send(new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
+                                        _logger.Warning(
+                                            $"No item info found with ID {itemDrop.ItemId} for tamer {tamer.Id}.");
+                                        targetClient.Send(
+                                            new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
                                         continue;
                                     }
 
                                     newItem.ItemId = itemDrop.ItemId;
-                                    newItem.Amount = UtilitiesFunctions.RandomInt(itemDrop.MinAmount, itemDrop.MaxAmount);
+                                    newItem.Amount =
+                                        UtilitiesFunctions.RandomInt(itemDrop.MinAmount, itemDrop.MaxAmount);
 
                                     var itemClone = (ItemModel)newItem.Clone();
                                     if (tamer.Inventory.AddItem(newItem))
                                     {
                                         updateItemList = true;
-                                        targetClient.Send(new ReceiveItemPacket(itemClone, InventoryTypeEnum.Inventory));
+                                        targetClient.Send(new ReceiveItemPacket(itemClone,
+                                            InventoryTypeEnum.Inventory));
                                     }
                                     else
                                     {
@@ -1210,7 +1326,8 @@ namespace DigitalWorldOnline.GameHost
                             else
                             {
                                 _logger.Error($"Unknown quest id {questInProgress.QuestId}.");
-                                targetClient.Send(new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
+                                targetClient.Send(
+                                    new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
                             }
                         }
 
@@ -1225,10 +1342,11 @@ namespace DigitalWorldOnline.GameHost
         private void RaidReward(GameMap map, MobConfigModel mob)
         {
             var raidResult = mob.RaidDamage.Where(x => x.Key > 0).DistinctBy(x => x.Key);
+            var keyValuePairs = raidResult.ToList();
 
             var writer = new PacketWriter();
             writer.Type(1604);
-            writer.WriteInt(raidResult.Count());
+            writer.WriteInt(keyValuePairs.Count());
 
             int i = 1;
 
@@ -1236,10 +1354,10 @@ namespace DigitalWorldOnline.GameHost
             var attackerName = string.Empty;
             var attackerType = 0;
 
-            foreach (var raidTamer in raidResult.OrderByDescending(x => x.Value))
+            foreach (var raidTamer in keyValuePairs.OrderByDescending(x => x.Value))
             {
-
-                _logger.Verbose($"Character {raidTamer.Key} rank {i} on raid {mob.Id} - {mob.Name} with damage {raidTamer.Value}.");
+                _logger.Verbose(
+                    $"Character {raidTamer.Key} rank {i} on raid {mob.Id} - {mob.Name} with damage {raidTamer.Value}.");
 
                 var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == raidTamer.Key);
 
@@ -1261,7 +1379,8 @@ namespace DigitalWorldOnline.GameHost
                 }
 
                 var bitsReward = mob.DropReward.BitsDrop;
-                if (targetClient != null && bitsReward != null && bitsReward.Chance >= UtilitiesFunctions.RandomDouble())
+                if (targetClient != null && bitsReward != null &&
+                    bitsReward.Chance >= UtilitiesFunctions.RandomDouble())
                 {
                     var drop = _dropManager.CreateBitDrop(
                         targetClient.Tamer.Id,
@@ -1281,12 +1400,15 @@ namespace DigitalWorldOnline.GameHost
 
                 if (targetClient != null && raidRewards != null && raidRewards.Any())
                 {
-                    var rewards = raidRewards.Where(x => x.Rank == i);
+                    var i1 = i;
+                    var rewards = raidRewards.Where(x => x.Rank == i1);
+                    var itemDropConfigModels = rewards.ToList();
 
-                    if (rewards == null || !rewards.Any())
-                        rewards = raidRewards.Where(x => x.Rank == raidRewards.Max(x => x.Rank));
+                    if (!itemDropConfigModels.Any())
+                        rewards = raidRewards.Where(x =>
+                            x.Rank == raidRewards.Max(itemDropConfigModel => itemDropConfigModel.Rank));
 
-                    foreach (var reward in rewards)
+                    foreach (var reward in itemDropConfigModels)
                     {
                         if (reward.Chance >= UtilitiesFunctions.RandomDouble())
                         {
@@ -1295,8 +1417,10 @@ namespace DigitalWorldOnline.GameHost
 
                             if (newItem.ItemInfo == null)
                             {
-                                _logger.Warning($"No item info found with ID {reward.ItemId} for tamer {targetClient.TamerId}.");
-                                targetClient.Send(new SystemMessagePacket($"No item info found with ID {reward.ItemId}."));
+                                _logger.Warning(
+                                    $"No item info found with ID {reward.ItemId} for tamer {targetClient.TamerId}.");
+                                targetClient.Send(
+                                    new SystemMessagePacket($"No item info found with ID {reward.ItemId}."));
                                 break;
                             }
 
@@ -1339,17 +1463,20 @@ namespace DigitalWorldOnline.GameHost
                 {
                     var mapId = 1300 + x;
 
-                    var currentMap = Maps.FirstOrDefault(x => x.Clients.Any() && x.MapId == mapId);
+                    var currentMap = Maps.FirstOrDefault(gameMap => gameMap.Clients.Any() && gameMap.MapId == mapId);
 
                     if (currentMap != null)
                     {
                         var clients = currentMap.Clients;
 
-                        var targetItem = _assets.ItemInfo.FirstOrDefault(x => x.ItemId == 71552);
+                        var targetItem =
+                            _assets.ItemInfo.FirstOrDefault(itemAssetModel => itemAssetModel.ItemId == 71552);
 
                         if (targetItem != null)
                         {
-                            var buff = _assets.BuffInfo.FirstOrDefault(x => x.SkillCode == targetItem.SkillCode || x.DigimonSkillCode == targetItem.SkillCode);
+                            var buff = _assets.BuffInfo.FirstOrDefault(buffInfoAssetModel =>
+                                buffInfoAssetModel.SkillCode == targetItem.SkillCode ||
+                                buffInfoAssetModel.DigimonSkillCode == targetItem.SkillCode);
 
                             if (buff != null)
                             {
@@ -1357,15 +1484,18 @@ namespace DigitalWorldOnline.GameHost
                                 {
                                     var duration = UtilitiesFunctions.RemainingTimeSeconds(targetItem.TimeInSeconds);
 
-                                    var newDigimonBuff = DigimonBuffModel.Create(buff.BuffId, buff.SkillId, targetItem.TypeN, targetItem.TimeInSeconds);
+                                    var newDigimonBuff = DigimonBuffModel.Create(buff.BuffId, buff.SkillId,
+                                        targetItem.TypeN, targetItem.TimeInSeconds);
                                     newDigimonBuff.SetBuffInfo(buff);
                                     client.Tamer.Partner.BuffList.Add(newDigimonBuff);
 
-                                    client.Send(new GlobalMessagePacket(mob.Type, attackerName, attackerType, targetItem.ItemId));
+                                    client.Send(new GlobalMessagePacket(mob.Type, attackerName, attackerType,
+                                        targetItem.ItemId));
                                     client.Send(new UpdateStatusPacket(client.Tamer));
 
                                     BroadcastForTamerViewsAndSelf(client.TamerId,
-                                        new AddBuffPacket(client.Partner.GeneralHandler, buff, (short)targetItem.TypeN, duration).Serialize());
+                                        new AddBuffPacket(client.Partner.GeneralHandler, buff, (short)targetItem.TypeN,
+                                            duration).Serialize());
 
                                     await _sender.Send(new UpdateDigimonBuffListCommand(client.Partner.BuffList));
                                 }
@@ -1379,18 +1509,20 @@ namespace DigitalWorldOnline.GameHost
         private void RaidReward(GameMap map, SummonMobModel mob)
         {
             var raidResult = mob.RaidDamage.Where(x => x.Key > 0).DistinctBy(x => x.Key);
+            var keyValuePairs = raidResult.ToList();
 
             var writer = new PacketWriter();
             writer.Type(1604);
-            writer.WriteInt(raidResult.Count());
+            writer.WriteInt(keyValuePairs.Count());
 
             int i = 1;
 
             var updateItemList = new List<ItemListModel>();
 
-            foreach (var raidTamer in raidResult.OrderByDescending(x => x.Value))
+            foreach (var raidTamer in keyValuePairs.OrderByDescending(x => x.Value))
             {
-                _logger.Verbose($"Character {raidTamer.Key} rank {i} on raid {mob.Id} - {mob.Name} with damage {raidTamer.Value}.");
+                _logger.Verbose(
+                    $"Character {raidTamer.Key} rank {i} on raid {mob.Id} - {mob.Name} with damage {raidTamer.Value}.");
 
                 var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == raidTamer.Key);
 
@@ -1403,7 +1535,8 @@ namespace DigitalWorldOnline.GameHost
                 }
 
                 var bitsReward = mob.DropReward.BitsDrop;
-                if (targetClient != null && bitsReward != null && bitsReward.Chance >= UtilitiesFunctions.RandomDouble())
+                if (targetClient != null && bitsReward != null &&
+                    bitsReward.Chance >= UtilitiesFunctions.RandomDouble())
                 {
                     var drop = _dropManager.CreateBitDrop(
                         targetClient.Tamer.Id,
@@ -1432,8 +1565,10 @@ namespace DigitalWorldOnline.GameHost
 
                             if (newItem.ItemInfo == null)
                             {
-                                _logger.Warning($"No item info found with ID {reward.ItemId} for tamer {targetClient.TamerId}.");
-                                targetClient.Send(new SystemMessagePacket($"No item info found with ID {reward.ItemId}."));
+                                _logger.Warning(
+                                    $"No item info found with ID {reward.ItemId} for tamer {targetClient.TamerId}.");
+                                targetClient.Send(
+                                    new SystemMessagePacket($"No item info found with ID {reward.ItemId}."));
                                 continue; // Continue para a próxima recompensa se não houver informações sobre o item.
                             }
 
@@ -1469,7 +1604,6 @@ namespace DigitalWorldOnline.GameHost
 
         private void MobsOperation(GameMap map, SummonMobModel mob)
         {
-
             switch (mob.CurrentAction)
             {
                 case MobActionEnum.Respawn:
@@ -1504,7 +1638,8 @@ namespace DigitalWorldOnline.GameHost
 
                 case MobActionEnum.Walk:
                     {
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new SyncConditionPacket(mob.GeneralHandler, ConditionEnum.Default).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new SyncConditionPacket(mob.GeneralHandler, ConditionEnum.Default).Serialize());
                         mob.Move();
                         map.BroadcastForTargetTamers(mob.TamersViewing, new MobWalkPacket(mob).Serialize());
                     }
@@ -1512,21 +1647,23 @@ namespace DigitalWorldOnline.GameHost
 
                 case MobActionEnum.GiveUp:
                     {
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new SyncConditionPacket(mob.GeneralHandler, ConditionEnum.Immortal).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new SyncConditionPacket(mob.GeneralHandler, ConditionEnum.Immortal).Serialize());
                         mob.ResetLocation();
                         map.BroadcastForTargetTamers(mob.TamersViewing, new MobRunPacket(mob).Serialize());
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new SetCombatOffPacket(mob.GeneralHandler).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new SetCombatOffPacket(mob.GeneralHandler).Serialize());
 
                         foreach (var targetTamer in mob.TargetTamers)
                         {
-
                             targetTamer.StopBattle(true);
-                            map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
-
+                            map.BroadcastForTamerViewsAndSelf(targetTamer.Id,
+                                new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
                         }
 
                         mob.Reset(true);
-                        map.BroadcastForTargetTamers(mob.TamersViewing, new UpdateCurrentHPRatePacket(mob.GeneralHandler, mob.CurrentHpRate).Serialize());
+                        map.BroadcastForTargetTamers(mob.TamersViewing,
+                            new UpdateCurrentHPRatePacket(mob.GeneralHandler, mob.CurrentHpRate).Serialize());
                     }
                     break;
 
@@ -1539,7 +1676,8 @@ namespace DigitalWorldOnline.GameHost
                             break;
                         }
 
-                        if (!mob.Dead && ((mob.TargetTamer == null || mob.TargetTamer.Hidden) || DateTime.Now > mob.LastHitTryTime.AddSeconds(15))) //Anti-kite
+                        if (!mob.Dead && ((mob.TargetTamer == null || mob.TargetTamer.Hidden) ||
+                                          DateTime.Now > mob.LastHitTryTime.AddSeconds(15))) //Anti-kite
                         {
                             mob.GiveUp();
                             break;
@@ -1569,7 +1707,8 @@ namespace DigitalWorldOnline.GameHost
                                 if (missed)
                                 {
                                     mob.UpdateLastHitTry();
-                                    map.BroadcastForTargetTamers(mob.TamersViewing, new MissHitPacket(mob.GeneralHandler, mob.TargetHandler).Serialize());
+                                    map.BroadcastForTargetTamers(mob.TamersViewing,
+                                        new MissHitPacket(mob.GeneralHandler, mob.TargetHandler).Serialize());
                                     mob.UpdateLastHit();
                                     break;
                                 }
@@ -1587,8 +1726,8 @@ namespace DigitalWorldOnline.GameHost
                             foreach (var targetTamer in mob.TargetTamers)
                             {
                                 targetTamer.StopBattle(true);
-                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
-
+                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id,
+                                    new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
                             }
 
                             break;
@@ -1623,10 +1762,10 @@ namespace DigitalWorldOnline.GameHost
                         if (!mob.Dead && !mob.Chasing && mob.TargetAlive)
                         {
                             var diff = UtilitiesFunctions.CalculateDistance(
-                               mob.CurrentLocation.X,
-                               mob.Target.Location.X,
-                               mob.CurrentLocation.Y,
-                               mob.Target.Location.Y);
+                                mob.CurrentLocation.X,
+                                mob.Target.Location.X,
+                                mob.CurrentLocation.Y,
+                                mob.Target.Location.Y);
 
                             if (diff <= 1900)
                             {
@@ -1634,7 +1773,6 @@ namespace DigitalWorldOnline.GameHost
                                     break;
 
                                 map.SkillTarget(mob, targetSkill);
-
 
 
                                 if (mob.Target != null)
@@ -1654,10 +1792,9 @@ namespace DigitalWorldOnline.GameHost
                         {
                             foreach (var targetTamer in mob.TargetTamers)
                             {
-
                                 targetTamer.StopBattle(true);
-                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id, new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
-
+                                map.BroadcastForTamerViewsAndSelf(targetTamer.Id,
+                                    new SetCombatOffPacket(targetTamer.Partner.GeneralHandler).Serialize());
                             }
 
                             break;
@@ -1699,14 +1836,19 @@ namespace DigitalWorldOnline.GameHost
 
                         if (goalIndex != -1)
                         {
-                            var currentGoalValue = tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId, goalIndex);
+                            var currentGoalValue =
+                                tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId, goalIndex);
                             if (currentGoalValue < questInfo.QuestGoals[goalIndex].GoalAmount)
                             {
                                 currentGoalValue++;
-                                tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId, goalIndex, currentGoalValue);
+                                tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId, goalIndex,
+                                    currentGoalValue);
 
-                                targetClient.Send(new QuestGoalUpdatePacket(questInProgress.QuestId, (byte)goalIndex, currentGoalValue));
-                                var questToUpdate = targetClient.Tamer.Progress.InProgressQuestData.FirstOrDefault(x => x.QuestId == questInProgress.QuestId);
+                                targetClient.Send(new QuestGoalUpdatePacket(questInProgress.QuestId, (byte)goalIndex,
+                                    currentGoalValue));
+                                var questToUpdate =
+                                    targetClient.Tamer.Progress.InProgressQuestData.FirstOrDefault(x =>
+                                        x.QuestId == questInProgress.QuestId);
                                 _sender.Send(new UpdateCharacterInProgressCommand(questToUpdate));
                             }
                         }
@@ -1719,10 +1861,7 @@ namespace DigitalWorldOnline.GameHost
                     }
                 }
 
-                giveUpList.ForEach(giveUp =>
-                {
-                    tamer.Progress.RemoveQuest(giveUp);
-                });
+                giveUpList.ForEach(giveUp => { tamer.Progress.RemoveQuest(giveUp); });
 
                 var party = _partyManager.FindParty(targetClient.TamerId);
                 if (party != null && !partyIdList.Contains(party.Id))
@@ -1757,12 +1896,17 @@ namespace DigitalWorldOnline.GameHost
 
                                 if (goalIndex != -1)
                                 {
-                                    var currentGoalValue = partyMemberClient.Tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId, goalIndex);
+                                    var currentGoalValue =
+                                        partyMemberClient.Tamer.Progress.GetQuestGoalProgress(questInProgress.QuestId,
+                                            goalIndex);
                                     if (currentGoalValue < questInfo.QuestGoals[goalIndex].GoalAmount)
                                     {
                                         currentGoalValue++;
-                                        partyMemberClient.Tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId, goalIndex, currentGoalValue);
-                                        var questToUpdate = partyMemberClient.Tamer.Progress.InProgressQuestData.FirstOrDefault(x => x.QuestId == questInProgress.QuestId);
+                                        partyMemberClient.Tamer.Progress.UpdateQuestInProgress(questInProgress.QuestId,
+                                            goalIndex, currentGoalValue);
+                                        var questToUpdate =
+                                            partyMemberClient.Tamer.Progress.InProgressQuestData.FirstOrDefault(x =>
+                                                x.QuestId == questInProgress.QuestId);
                                         _sender.Send(new UpdateCharacterInProgressCommand(questToUpdate));
                                     }
                                 }
@@ -1770,15 +1914,13 @@ namespace DigitalWorldOnline.GameHost
                             else
                             {
                                 _logger.Error($"Unknown quest id {questInProgress.QuestId}.");
-                                partyMemberClient.Send(new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
+                                partyMemberClient.Send(
+                                    new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
                                 giveUpList.Add(questInProgress.QuestId);
                             }
                         }
 
-                        giveUpList.ForEach(giveUp =>
-                        {
-                            partyMemberClient.Tamer.Progress.RemoveQuest(giveUp);
-                        });
+                        giveUpList.ForEach(giveUp => { partyMemberClient.Tamer.Progress.RemoveQuest(giveUp); });
                     }
                 }
             }
@@ -1799,7 +1941,7 @@ namespace DigitalWorldOnline.GameHost
                 DropReward(map, mob);
         }
 
-        private void ExperienceReward(GameMap map, SummonMobModel mob)
+        private void ExperienceReward(GameMap map,SummonMobModel mob)
         {
             if (mob.ExpReward == null)
                 return;
@@ -1809,78 +1951,50 @@ namespace DigitalWorldOnline.GameHost
             foreach (var tamer in mob.TargetTamers)
             {
                 var targetClient = map.Clients.FirstOrDefault(x => x.TamerId == tamer?.Id);
-
                 if (targetClient == null)
                     continue;
 
-                // ------------------------------------------------------------------------------------------------------
-
-                long baseTamerExp = mob.ExpReward.TamerExperience;      // Mob Tamer Exp
-                long basePartnerExp = mob.ExpReward.DigimonExperience;  // Mob Digimon Exp
-
-                var serverMultiplier = targetClient.ServerExperience / 100.0;   // Server Exp Multiplier
-                var playerMultiplier = tamer.BonusEXP / 100.0;                  // Bonus Exp (Booster) Multiplier
-
-                double expBonusMultiplier = playerMultiplier + serverMultiplier;
-
-                var tamerExp = (long)(baseTamerExp * serverMultiplier);     // Tamer Server Exp
-                var bonusExp = (long)(baseTamerExp * playerMultiplier);     // Tamer Booster Exp
-
-                var digimonExp = (long)(basePartnerExp * serverMultiplier);         // Digimon Server Exp
-                var bonusDigimonExp = (long)(basePartnerExp * playerMultiplier);    // Digimon Booster Exp
-
-                // ------------------------------------------------------------------------------------------------------
-
-                var tamerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level, mob.Level, baseTamerExp) * expBonusMultiplier);
-
-                if (CalculateExperience(tamer.Partner.Level, mob.Level, baseTamerExp) == 0)
-                {
+                var tamerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.TamerExperience)); //TODO: +bonus
+                if (CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.TamerExperience) == 0)
                     tamerExpToReceive = 0;
-                    tamerExp = 0;
-                    bonusExp = 0;
-                }
 
-                var tamerResult = ReceiveTamerExp(targetClient.Tamer, tamerExpToReceive);
+                if (tamerExpToReceive > 100) tamerExpToReceive += UtilitiesFunctions.RandomInt(-35,45);
+                var tamerResult = ReceiveTamerExp(targetClient.Tamer,tamerExpToReceive);
 
-                if (bonusExp > 0) tamerExp = tamerExp - bonusExp;
+                var partnerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.DigimonExperience));
 
-                // ------------------------------------------------------------------------------------------------------
 
-                var partnerExpToReceive = (long)(CalculateExperience(tamer.Partner.Level, mob.Level, basePartnerExp) * expBonusMultiplier);
 
-                if (CalculateExperience(tamer.Partner.Level, mob.Level, basePartnerExp) == 0)
-                {
+                if (CalculateExperience(tamer.Partner.Level,mob.Level,mob.ExpReward.DigimonExperience) == 0)
                     partnerExpToReceive = 0;
-                    digimonExp = 0;
-                    bonusDigimonExp = 0;
-                }
 
-                var partnerResult = ReceivePartnerExp(targetClient.Partner, mob, partnerExpToReceive);
+                if (partnerExpToReceive > 100) partnerExpToReceive += UtilitiesFunctions.RandomInt(-35,45);
+                var partnerResult = ReceivePartnerExp(targetClient,targetClient.Partner,mob,partnerExpToReceive);
 
-                if (bonusDigimonExp > 0) digimonExp = digimonExp - bonusDigimonExp;
+                var totalTamerExp = BonusTamerExp(map,mob);
 
-                // ------------------------------------------------------------------------------------------------------
+                var bonusTamerExp = ReceiveBonusTamerExp(targetClient.Tamer,totalTamerExp);
 
-                if (targetClient.Partner.CurrentEvolution.SkillMastery < 30)
-                {
-                    var skillExp = mob.ExpReward.SkillExperience * (int)serverMultiplier;
-                    tamer.Partner.ReceiveSkillExp(skillExp);
-                }
+                var totalPartnerExp = BonusPartnerExp(map,mob);
+
+                var bonusPartnerExp = ReceiveBonusPartnerExp(targetClient.Partner,mob,totalPartnerExp);
+
 
                 targetClient.Send(
                     new ReceiveExpPacket(
-                        tamerExp,
-                        bonusExp,
+                        tamerExpToReceive,
+                        totalTamerExp,
                         targetClient.Tamer.CurrentExperience,
                         targetClient.Partner.GeneralHandler,
-                        digimonExp,
-                        bonusDigimonExp,
+                        partnerExpToReceive,
+                        totalPartnerExp,
                         targetClient.Partner.CurrentExperience,
                         targetClient.Partner.CurrentEvolution.SkillExperience
                     )
                 );
 
-                SkillExpReward(map, targetClient);
+                //TODO: importar o DMBase e tratar isso
+                SkillExpReward(map,targetClient);
 
                 if (tamerResult.LevelGain > 0 || partnerResult.LevelGain > 0)
                 {
@@ -1893,7 +2007,7 @@ namespace DigitalWorldOnline.GameHost
                 _sender.Send(new UpdateCharacterExperienceCommand(tamer));
                 _sender.Send(new UpdateDigimonExperienceCommand(tamer.Partner));
 
-                PartyExperienceReward(map, mob, partyIdList, targetClient, tamerExpToReceive, tamerResult, partnerExpToReceive, partnerResult);
+                PartyExperienceReward(map,mob,partyIdList,targetClient,tamerExpToReceive,tamerResult,partnerExpToReceive,partnerResult);
             }
 
             partyIdList.Clear();
@@ -1910,26 +2024,31 @@ namespace DigitalWorldOnline.GameHost
             ItemDropReward(map, mob, targetClient);
         }
 
-        private void BitDropReward(GameMap map, SummonMobModel mob, GameClient? targetClient)
+        private void BitDropReward(GameMap map,SummonMobModel mob,GameClient? targetClient)
         {
             var bitsReward = mob.DropReward.BitsDrop;
-
             if (bitsReward != null && bitsReward.Chance >= UtilitiesFunctions.RandomDouble())
             {
                 if (targetClient.Tamer.HasAura && targetClient.Tamer.Aura.ItemInfo.Section == 2100)
                 {
-                    var amount = UtilitiesFunctions.RandomInt(bitsReward.MinAmount, bitsReward.MaxAmount);
+                    var amount = UtilitiesFunctions.RandomInt(bitsReward.MinAmount,bitsReward.MaxAmount);
 
-                    targetClient.Send(new PickBitsPacket(targetClient.Tamer.GeneralHandler, amount));
+                    targetClient.Send(
+                        new PickBitsPacket(
+                            targetClient.Tamer.GeneralHandler,
+                            amount
+                        )
+                    );
 
                     targetClient.Tamer.Inventory.AddBits(amount);
+                    _sender.Send(new UpdateItemListBitsCommand(targetClient.Tamer.Inventory));
 
                     _sender.Send(new UpdateItemsCommand(targetClient.Tamer.Inventory));
-                    _sender.Send(new UpdateItemListBitsCommand(targetClient.Tamer.Inventory.Id, targetClient.Tamer.Inventory.Bits));
                     _logger.Verbose($"Character {targetClient.TamerId} aquired {amount} bits from mob {mob.Id} with magnetic aura {targetClient.Tamer.Aura.ItemId}.");
                 }
                 else
                 {
+
                     var drop = _dropManager.CreateBitDrop(
                         targetClient.TamerId,
                         targetClient.Tamer.GeneralHandler,
@@ -1981,8 +2100,10 @@ namespace DigitalWorldOnline.GameHost
 
                             if (newItem.ItemInfo == null)
                             {
-                                _logger.Warning($"No item info found with ID {itemDrop.ItemId} for tamer {targetClient.Tamer.Id}.");
-                                targetClient.Send(new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
+                                _logger.Warning(
+                                    $"No item info found with ID {itemDrop.ItemId} for tamer {targetClient.Tamer.Id}.");
+                                targetClient.Send(
+                                    new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
                                 continue;
                             }
 
@@ -1994,7 +2115,8 @@ namespace DigitalWorldOnline.GameHost
                             {
                                 targetClient.Send(new ReceiveItemPacket(itemClone, InventoryTypeEnum.Inventory));
                                 _sender.Send(new UpdateItemsCommand(targetClient.Tamer.Inventory));
-                                _logger.Verbose($"Character {targetClient.TamerId} aquired {newItem.ItemId} x{newItem.Amount} from " +
+                                _logger.Verbose(
+                                    $"Character {targetClient.TamerId} aquired {newItem.ItemId} x{newItem.Amount} from " +
                                     $"mob {mob.Id} with magnetic aura {targetClient.Tamer.Aura.ItemId}.");
                             }
                             else
@@ -2103,23 +2225,28 @@ namespace DigitalWorldOnline.GameHost
                                 if (goalIndex != -1)
                                 {
                                     var newItem = new ItemModel();
-                                    newItem.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == itemDrop.ItemId));
+                                    newItem.SetItemInfo(
+                                        _assets.ItemInfo.FirstOrDefault(x => x.ItemId == itemDrop.ItemId));
 
                                     if (newItem.ItemInfo == null)
                                     {
-                                        _logger.Warning($"No item info found with ID {itemDrop.ItemId} for tamer {tamer.Id}.");
-                                        targetClient.Send(new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
+                                        _logger.Warning(
+                                            $"No item info found with ID {itemDrop.ItemId} for tamer {tamer.Id}.");
+                                        targetClient.Send(
+                                            new SystemMessagePacket($"No item info found with ID {itemDrop.ItemId}."));
                                         continue;
                                     }
 
                                     newItem.ItemId = itemDrop.ItemId;
-                                    newItem.Amount = UtilitiesFunctions.RandomInt(itemDrop.MinAmount, itemDrop.MaxAmount);
+                                    newItem.Amount =
+                                        UtilitiesFunctions.RandomInt(itemDrop.MinAmount, itemDrop.MaxAmount);
 
                                     var itemClone = (ItemModel)newItem.Clone();
                                     if (tamer.Inventory.AddItem(newItem))
                                     {
                                         updateItemList = true;
-                                        targetClient.Send(new ReceiveItemPacket(itemClone, InventoryTypeEnum.Inventory));
+                                        targetClient.Send(new ReceiveItemPacket(itemClone,
+                                            InventoryTypeEnum.Inventory));
                                     }
                                     else
                                     {
@@ -2130,7 +2257,8 @@ namespace DigitalWorldOnline.GameHost
                             else
                             {
                                 _logger.Error($"Unknown quest id {questInProgress.QuestId}.");
-                                targetClient.Send(new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
+                                targetClient.Send(
+                                    new SystemMessagePacket($"Unknown quest id {questInProgress.QuestId}."));
                             }
                         }
 
@@ -2180,218 +2308,217 @@ namespace DigitalWorldOnline.GameHost
             };
 
             var ChampionExperienceTemp = new List<Tuple<int, int>>
-                {
-                    new Tuple<int, int>(0, 621),
-                    new Tuple<int, int>(1, 696),
-                    new Tuple<int, int>(2, 779),
-                    new Tuple<int, int>(3, 872),
-                    new Tuple<int, int>(4, 977),
-                    new Tuple<int, int>(5, 1095),
-                    new Tuple<int, int>(6, 1226),
-                    new Tuple<int, int>(7, 1374),
-                    new Tuple<int, int>(8, 1538),
-                    new Tuple<int, int>(9, 1722),
-                    new Tuple<int, int>(10, 1930),
-                    new Tuple<int, int>(11, 2160),
-                    new Tuple<int, int>(12, 2420),
-                    new Tuple<int, int>(13, 2710),
-                    new Tuple<int, int>(14, 3036),
-                    new Tuple<int, int>(15, 3400),
-                    new Tuple<int, int>(16, 3808),
-                    new Tuple<int, int>(17, 4264),
-                    new Tuple<int, int>(18, 4776),
-                    new Tuple<int, int>(19, 5350),
-                    new Tuple<int, int>(20, 5992),
-                    new Tuple<int, int>(21, 6712),
-                    new Tuple<int, int>(22, 7516),
-                    new Tuple<int, int>(23, 8418),
-                    new Tuple<int, int>(24, 9428),
-                    new Tuple<int, int>(25, 10560),
-                    new Tuple<int, int>(26, 11828),
-                    new Tuple<int, int>(27, 13246),
-                    new Tuple<int, int>(28, 14386),
-                    new Tuple<int, int>(29, 16616),
-                    new Tuple<int, int>(30, 18610)
-                };
+            {
+                new Tuple<int, int>(0, 621),
+                new Tuple<int, int>(1, 696),
+                new Tuple<int, int>(2, 779),
+                new Tuple<int, int>(3, 872),
+                new Tuple<int, int>(4, 977),
+                new Tuple<int, int>(5, 1095),
+                new Tuple<int, int>(6, 1226),
+                new Tuple<int, int>(7, 1374),
+                new Tuple<int, int>(8, 1538),
+                new Tuple<int, int>(9, 1722),
+                new Tuple<int, int>(10, 1930),
+                new Tuple<int, int>(11, 2160),
+                new Tuple<int, int>(12, 2420),
+                new Tuple<int, int>(13, 2710),
+                new Tuple<int, int>(14, 3036),
+                new Tuple<int, int>(15, 3400),
+                new Tuple<int, int>(16, 3808),
+                new Tuple<int, int>(17, 4264),
+                new Tuple<int, int>(18, 4776),
+                new Tuple<int, int>(19, 5350),
+                new Tuple<int, int>(20, 5992),
+                new Tuple<int, int>(21, 6712),
+                new Tuple<int, int>(22, 7516),
+                new Tuple<int, int>(23, 8418),
+                new Tuple<int, int>(24, 9428),
+                new Tuple<int, int>(25, 10560),
+                new Tuple<int, int>(26, 11828),
+                new Tuple<int, int>(27, 13246),
+                new Tuple<int, int>(28, 14386),
+                new Tuple<int, int>(29, 16616),
+                new Tuple<int, int>(30, 18610)
+            };
 
             var UltimateExperienceTemp = new List<Tuple<int, int>>
-                {
-                    new Tuple<int, int>(0, 3036),
-                    new Tuple<int, int>(1, 3400),
-                    new Tuple<int, int>(2, 3808),
-                    new Tuple<int, int>(3, 4264),
-                    new Tuple<int, int>(4, 4776),
-                    new Tuple<int, int>(5, 5350),
-                    new Tuple<int, int>(6, 5992),
-                    new Tuple<int, int>(7, 6712),
-                    new Tuple<int, int>(8, 7516),
-                    new Tuple<int, int>(9, 8418),
-                    new Tuple<int, int>(10, 9428),
-                    new Tuple<int, int>(11, 10560),
-                    new Tuple<int, int>(12, 11828),
-                    new Tuple<int, int>(13, 13246),
-                    new Tuple<int, int>(14, 14836),
-                    new Tuple<int, int>(15, 16616),
-                    new Tuple<int, int>(16, 18610),
-                    new Tuple<int, int>(17, 20844),
-                    new Tuple<int, int>(18, 23344),
-                    new Tuple<int, int>(19, 26145),
-                    new Tuple<int, int>(20, 29283),
-                    new Tuple<int, int>(21, 32798),
-                    new Tuple<int, int>(22, 36734),
-                    new Tuple<int, int>(23, 41142),
-                    new Tuple<int, int>(24, 46078),
-                    new Tuple<int, int>(25, 51608),
-                    new Tuple<int, int>(26, 57800),
-                    new Tuple<int, int>(27, 64736),
-                    new Tuple<int, int>(28, 72504),
-                    new Tuple<int, int>(29, 81206),
-                    new Tuple<int, int>(30, 90950)
-                };
+            {
+                new Tuple<int, int>(0, 3036),
+                new Tuple<int, int>(1, 3400),
+                new Tuple<int, int>(2, 3808),
+                new Tuple<int, int>(3, 4264),
+                new Tuple<int, int>(4, 4776),
+                new Tuple<int, int>(5, 5350),
+                new Tuple<int, int>(6, 5992),
+                new Tuple<int, int>(7, 6712),
+                new Tuple<int, int>(8, 7516),
+                new Tuple<int, int>(9, 8418),
+                new Tuple<int, int>(10, 9428),
+                new Tuple<int, int>(11, 10560),
+                new Tuple<int, int>(12, 11828),
+                new Tuple<int, int>(13, 13246),
+                new Tuple<int, int>(14, 14836),
+                new Tuple<int, int>(15, 16616),
+                new Tuple<int, int>(16, 18610),
+                new Tuple<int, int>(17, 20844),
+                new Tuple<int, int>(18, 23344),
+                new Tuple<int, int>(19, 26145),
+                new Tuple<int, int>(20, 29283),
+                new Tuple<int, int>(21, 32798),
+                new Tuple<int, int>(22, 36734),
+                new Tuple<int, int>(23, 41142),
+                new Tuple<int, int>(24, 46078),
+                new Tuple<int, int>(25, 51608),
+                new Tuple<int, int>(26, 57800),
+                new Tuple<int, int>(27, 64736),
+                new Tuple<int, int>(28, 72504),
+                new Tuple<int, int>(29, 81206),
+                new Tuple<int, int>(30, 90950)
+            };
 
             var MegaExperienceTemp = new List<Tuple<int, int>>
-                {
-                    new Tuple<int, int>(0, 18610),
-                    new Tuple<int, int>(1, 20844),
-                    new Tuple<int, int>(2, 23344),
-                    new Tuple<int, int>(3, 26145),
-                    new Tuple<int, int>(4, 29283),
-                    new Tuple<int, int>(5, 32798),
-                    new Tuple<int, int>(6, 36734),
-                    new Tuple<int, int>(7, 41142),
-                    new Tuple<int, int>(8, 46078),
-                    new Tuple<int, int>(9, 51608),
-                    new Tuple<int, int>(10, 57800),
-                    new Tuple<int, int>(11, 64736),
-                    new Tuple<int, int>(12, 72504),
-                    new Tuple<int, int>(13, 81206),
-                    new Tuple<int, int>(14, 90950),
-                    new Tuple<int, int>(15, 101864),
-                    new Tuple<int, int>(16, 114088),
-                    new Tuple<int, int>(17, 127778),
-                    new Tuple<int, int>(18, 143112),
-                    new Tuple<int, int>(19, 160286),
-                    new Tuple<int, int>(20, 179520),
-                    new Tuple<int, int>(21, 201062),
-                    new Tuple<int, int>(22, 225190),
-                    new Tuple<int, int>(23, 252212),
-                    new Tuple<int, int>(24, 282478),
-                    new Tuple<int, int>(25, 316374),
-                    new Tuple<int, int>(26, 354340),
-                    new Tuple<int, int>(27, 396860),
-                    new Tuple<int, int>(28, 444484),
-                    new Tuple<int, int>(29, 497822),
-                    new Tuple<int, int>(30, 557560)
-                };
+            {
+                new Tuple<int, int>(0, 18610),
+                new Tuple<int, int>(1, 20844),
+                new Tuple<int, int>(2, 23344),
+                new Tuple<int, int>(3, 26145),
+                new Tuple<int, int>(4, 29283),
+                new Tuple<int, int>(5, 32798),
+                new Tuple<int, int>(6, 36734),
+                new Tuple<int, int>(7, 41142),
+                new Tuple<int, int>(8, 46078),
+                new Tuple<int, int>(9, 51608),
+                new Tuple<int, int>(10, 57800),
+                new Tuple<int, int>(11, 64736),
+                new Tuple<int, int>(12, 72504),
+                new Tuple<int, int>(13, 81206),
+                new Tuple<int, int>(14, 90950),
+                new Tuple<int, int>(15, 101864),
+                new Tuple<int, int>(16, 114088),
+                new Tuple<int, int>(17, 127778),
+                new Tuple<int, int>(18, 143112),
+                new Tuple<int, int>(19, 160286),
+                new Tuple<int, int>(20, 179520),
+                new Tuple<int, int>(21, 201062),
+                new Tuple<int, int>(22, 225190),
+                new Tuple<int, int>(23, 252212),
+                new Tuple<int, int>(24, 282478),
+                new Tuple<int, int>(25, 316374),
+                new Tuple<int, int>(26, 354340),
+                new Tuple<int, int>(27, 396860),
+                new Tuple<int, int>(28, 444484),
+                new Tuple<int, int>(29, 497822),
+                new Tuple<int, int>(30, 557560)
+            };
 
             var JogressExperienceTemp = new List<Tuple<int, int>>
-                {
-                    new Tuple<int, int>(0, 57800),
-                    new Tuple<int, int>(1, 64736),
-                    new Tuple<int, int>(2, 72504),
-                    new Tuple<int, int>(3, 81206),
-                    new Tuple<int, int>(4, 90950),
-                    new Tuple<int, int>(5, 101864),
-                    new Tuple<int, int>(6, 114088),
-                    new Tuple<int, int>(7, 127778),
-                    new Tuple<int, int>(8, 143112),
-                    new Tuple<int, int>(9, 160286),
-                    new Tuple<int, int>(10, 179520),
-                    new Tuple<int, int>(11, 201062),
-                    new Tuple<int, int>(12, 225190),
-                    new Tuple<int, int>(13, 252212),
-                    new Tuple<int, int>(14, 282478),
-                    new Tuple<int, int>(15, 316374),
-                    new Tuple<int, int>(16, 354340),
-                    new Tuple<int, int>(17, 396860),
-                    new Tuple<int, int>(18, 444484),
-                    new Tuple<int, int>(19, 497822),
-                    new Tuple<int, int>(20, 557560),
-                    new Tuple<int, int>(21, 624468),
-                    new Tuple<int, int>(22, 699404),
-                    new Tuple<int, int>(23, 783332),
-                    new Tuple<int, int>(24, 877332),
-                    new Tuple<int, int>(25, 982612),
-                    new Tuple<int, int>(26, 1100524),
-                    new Tuple<int, int>(27, 1232588),
-                    new Tuple<int, int>(28, 1380497),
-                    new Tuple<int, int>(29, 1546158),
-                    new Tuple<int, int>(30, 1731696)
-                };
+            {
+                new Tuple<int, int>(0, 57800),
+                new Tuple<int, int>(1, 64736),
+                new Tuple<int, int>(2, 72504),
+                new Tuple<int, int>(3, 81206),
+                new Tuple<int, int>(4, 90950),
+                new Tuple<int, int>(5, 101864),
+                new Tuple<int, int>(6, 114088),
+                new Tuple<int, int>(7, 127778),
+                new Tuple<int, int>(8, 143112),
+                new Tuple<int, int>(9, 160286),
+                new Tuple<int, int>(10, 179520),
+                new Tuple<int, int>(11, 201062),
+                new Tuple<int, int>(12, 225190),
+                new Tuple<int, int>(13, 252212),
+                new Tuple<int, int>(14, 282478),
+                new Tuple<int, int>(15, 316374),
+                new Tuple<int, int>(16, 354340),
+                new Tuple<int, int>(17, 396860),
+                new Tuple<int, int>(18, 444484),
+                new Tuple<int, int>(19, 497822),
+                new Tuple<int, int>(20, 557560),
+                new Tuple<int, int>(21, 624468),
+                new Tuple<int, int>(22, 699404),
+                new Tuple<int, int>(23, 783332),
+                new Tuple<int, int>(24, 877332),
+                new Tuple<int, int>(25, 982612),
+                new Tuple<int, int>(26, 1100524),
+                new Tuple<int, int>(27, 1232588),
+                new Tuple<int, int>(28, 1380497),
+                new Tuple<int, int>(29, 1546158),
+                new Tuple<int, int>(30, 1731696)
+            };
 
             var BurstModeExperienceTemp = new List<Tuple<int, int>>
-               {
-                    new Tuple<int, int>(0, 57800),
-                    new Tuple<int, int>(1, 64736),
-                    new Tuple<int, int>(2, 72504),
-                    new Tuple<int, int>(3, 81206),
-                    new Tuple<int, int>(4, 90950),
-                    new Tuple<int, int>(5, 101864),
-                    new Tuple<int, int>(6, 114088),
-                    new Tuple<int, int>(7, 127778),
-                    new Tuple<int, int>(8, 143112),
-                    new Tuple<int, int>(9, 160286),
-                    new Tuple<int, int>(10, 179520),
-                    new Tuple<int, int>(11, 201062),
-                    new Tuple<int, int>(12, 225190),
-                    new Tuple<int, int>(13, 252212),
-                    new Tuple<int, int>(14, 282478),
-                    new Tuple<int, int>(15, 316374),
-                    new Tuple<int, int>(16, 354340),
-                    new Tuple<int, int>(17, 396860),
-                    new Tuple<int, int>(18, 444484),
-                    new Tuple<int, int>(19, 497822),
-                    new Tuple<int, int>(20, 557560),
-                    new Tuple<int, int>(21, 624468),
-                    new Tuple<int, int>(22, 699404),
-                    new Tuple<int, int>(23, 783332),
-                    new Tuple<int, int>(24, 877332),
-                    new Tuple<int, int>(25, 982612),
-                    new Tuple<int, int>(26, 1100524),
-                    new Tuple<int, int>(27, 1232588),
-                    new Tuple<int, int>(28, 1380497),
-                    new Tuple<int, int>(29, 1546158),
-                    new Tuple<int, int>(30, 1731696)
-               };
+            {
+                new Tuple<int, int>(0, 57800),
+                new Tuple<int, int>(1, 64736),
+                new Tuple<int, int>(2, 72504),
+                new Tuple<int, int>(3, 81206),
+                new Tuple<int, int>(4, 90950),
+                new Tuple<int, int>(5, 101864),
+                new Tuple<int, int>(6, 114088),
+                new Tuple<int, int>(7, 127778),
+                new Tuple<int, int>(8, 143112),
+                new Tuple<int, int>(9, 160286),
+                new Tuple<int, int>(10, 179520),
+                new Tuple<int, int>(11, 201062),
+                new Tuple<int, int>(12, 225190),
+                new Tuple<int, int>(13, 252212),
+                new Tuple<int, int>(14, 282478),
+                new Tuple<int, int>(15, 316374),
+                new Tuple<int, int>(16, 354340),
+                new Tuple<int, int>(17, 396860),
+                new Tuple<int, int>(18, 444484),
+                new Tuple<int, int>(19, 497822),
+                new Tuple<int, int>(20, 557560),
+                new Tuple<int, int>(21, 624468),
+                new Tuple<int, int>(22, 699404),
+                new Tuple<int, int>(23, 783332),
+                new Tuple<int, int>(24, 877332),
+                new Tuple<int, int>(25, 982612),
+                new Tuple<int, int>(26, 1100524),
+                new Tuple<int, int>(27, 1232588),
+                new Tuple<int, int>(28, 1380497),
+                new Tuple<int, int>(29, 1546158),
+                new Tuple<int, int>(30, 1731696)
+            };
 
             var HybridExperienceTemp = new List<Tuple<int, int>>
-                {
-                    new Tuple<int, int>(0, 200),
-                    new Tuple<int, int>(1, 224),
-                    new Tuple<int, int>(2, 250),
-                    new Tuple<int, int>(3, 280),
-                    new Tuple<int, int>(4, 314),
-                    new Tuple<int, int>(5, 352),
-                    new Tuple<int, int>(6, 394),
-                    new Tuple<int, int>(7, 442),
-                    new Tuple<int, int>(8, 496),
-                    new Tuple<int, int>(9, 554),
-                    new Tuple<int, int>(10, 622),
-                    new Tuple<int, int>(11, 696),
-                    new Tuple<int, int>(12, 780),
-                    new Tuple<int, int>(13, 872),
-                    new Tuple<int, int>(14, 977),
-                    new Tuple<int, int>(15, 1095),
-                    new Tuple<int, int>(16, 1226),
-                    new Tuple<int, int>(17, 1374),
-                    new Tuple<int, int>(18, 1538),
-                    new Tuple<int, int>(19, 1722),
-                    new Tuple<int, int>(20, 1930),
-                    new Tuple<int, int>(21, 2160),
-                    new Tuple<int, int>(22, 2420),
-                    new Tuple<int, int>(23, 2710),
-                    new Tuple<int, int>(24, 3036),
-                    new Tuple<int, int>(25, 3400),
-                    new Tuple<int, int>(26, 3808),
-                    new Tuple<int, int>(27, 4264),
-                    new Tuple<int, int>(28, 4776),
-                    new Tuple<int, int>(29, 5350),
-                    new Tuple<int, int>(30, 5992)
-                };
+            {
+                new Tuple<int, int>(0, 200),
+                new Tuple<int, int>(1, 224),
+                new Tuple<int, int>(2, 250),
+                new Tuple<int, int>(3, 280),
+                new Tuple<int, int>(4, 314),
+                new Tuple<int, int>(5, 352),
+                new Tuple<int, int>(6, 394),
+                new Tuple<int, int>(7, 442),
+                new Tuple<int, int>(8, 496),
+                new Tuple<int, int>(9, 554),
+                new Tuple<int, int>(10, 622),
+                new Tuple<int, int>(11, 696),
+                new Tuple<int, int>(12, 780),
+                new Tuple<int, int>(13, 872),
+                new Tuple<int, int>(14, 977),
+                new Tuple<int, int>(15, 1095),
+                new Tuple<int, int>(16, 1226),
+                new Tuple<int, int>(17, 1374),
+                new Tuple<int, int>(18, 1538),
+                new Tuple<int, int>(19, 1722),
+                new Tuple<int, int>(20, 1930),
+                new Tuple<int, int>(21, 2160),
+                new Tuple<int, int>(22, 2420),
+                new Tuple<int, int>(23, 2710),
+                new Tuple<int, int>(24, 3036),
+                new Tuple<int, int>(25, 3400),
+                new Tuple<int, int>(26, 3808),
+                new Tuple<int, int>(27, 4264),
+                new Tuple<int, int>(28, 4776),
+                new Tuple<int, int>(29, 5350),
+                new Tuple<int, int>(30, 5992)
+            };
 
             switch ((EvolutionRankEnum)evolutionType)
             {
-
                 case EvolutionRankEnum.RookieX:
                 case EvolutionRankEnum.Rookie:
                     return RockieExperienceTemp.FirstOrDefault(x => x.Item1 == SkillMastery)?.Item2 ?? -1;
@@ -2430,7 +2557,6 @@ namespace DigitalWorldOnline.GameHost
             }
 
             return -1;
-
         }
     }
 }

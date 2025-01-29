@@ -7,14 +7,23 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
     {
         private const int PacketNumber = 2315;
 
-        public PartyMemberWarpGatePacket(KeyValuePair<byte, CharacterModel> member)
+        public PartyMemberWarpGatePacket(KeyValuePair<byte, CharacterModel> member, CharacterModel character)
         {
             Type(PacketNumber);
             WriteByte(member.Key);
             WriteInt(member.Value.Location.MapId);
             WriteInt(member.Value.Channel);
-            WriteInt(member.Value.GeneralHandler);
-            WriteInt(member.Value.Partner.GeneralHandler);
+            if (character.Channel == member.Value.Channel &&
+                character.Location.MapId == member.Value.Location.MapId)
+            {
+                WriteInt(member.Value.GeneralHandler);
+                WriteInt(member.Value.Partner.GeneralHandler);
+            }
+            else
+            {
+                WriteInt(0);
+                WriteInt(0);
+            }
         }
     }
 }

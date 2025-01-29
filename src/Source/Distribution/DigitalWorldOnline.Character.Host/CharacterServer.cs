@@ -16,10 +16,12 @@ namespace DigitalWorldOnline.Character
 
         private const int OnConnectEventHandshakeHandler = 65535;
 
-        public CharacterServer(IHostApplicationLifetime hostApplicationLifetime,
+        public CharacterServer(
+            IHostApplicationLifetime hostApplicationLifetime,
             IConfiguration configuration,
             IProcessor processor,
-            ILogger logger)
+            ILogger logger
+            )
         {
             OnConnect += OnConnectEvent;
             OnDisconnect += OnDisconnectEvent;
@@ -67,7 +69,8 @@ namespace DigitalWorldOnline.Character
 
             _logger.Information($"Accepted connection event from {gameClientEvent.Client.HiddenAddress}.");
 
-            gameClientEvent.Client.SetHandshake((short)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() & OnConnectEventHandshakeHandler));
+            gameClientEvent.Client.SetHandshake((short)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() &
+                                                        OnConnectEventHandshakeHandler));
 
             if (gameClientEvent.Client.IsConnected)
             {
@@ -76,7 +79,6 @@ namespace DigitalWorldOnline.Character
             }
             else
                 _logger.Warning($"Request source {gameClientEvent.Client.ClientAddress} has been disconnected.");
-
         }
 
         /// <summary>
@@ -89,7 +91,8 @@ namespace DigitalWorldOnline.Character
             if (!string.IsNullOrEmpty(gameClientEvent.Client.ClientAddress))
             {
                 _logger.Information($"Received disconnection event for {gameClientEvent.Client.HiddenAddress}.");
-                _logger.Debug($"Source disconnected: {gameClientEvent.Client.ClientAddress}. Account: {gameClientEvent.Client.AccountId}.");
+                _logger.Debug(
+                    $"Source disconnected: {gameClientEvent.Client.ClientAddress}. Account: {gameClientEvent.Client.AccountId}.");
             }
         }
 
@@ -120,7 +123,9 @@ namespace DigitalWorldOnline.Character
                     using var fs = File.Create(filePath);
                     fs.Write(data, 0, data.Length);
                 }
-                catch { }
+                catch
+                {
+                }
 
                 //TODO: Salvar no banco com os parametros
             }
@@ -155,8 +160,8 @@ namespace DigitalWorldOnline.Character
         private void OnStarted()
         {
             if (!Listen(_configuration[CharacterServerAddress],
-                _configuration[CharacterServerPort],
-                _configuration[CharacterServerBacklog]))
+                    _configuration[CharacterServerPort],
+                    _configuration[CharacterServerBacklog]))
             {
                 _logger.Error("Unable to start. Check the binding configurations.");
                 _hostApplicationLifetime.StopApplication();

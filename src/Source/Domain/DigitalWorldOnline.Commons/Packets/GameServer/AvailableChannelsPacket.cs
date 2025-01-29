@@ -19,7 +19,6 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                 WriteByte(channel.Key);
                 WriteByte(UtilitiesFunctions.GetChannelLoad(channel.Value));
             }
-
             WriteByte(byte.MaxValue);
         }
 

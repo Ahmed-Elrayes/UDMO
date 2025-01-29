@@ -2,8 +2,6 @@
 {
     public sealed partial class CharacterEncyclopediaEvolutionsModel
     {
-        public DateTime TempUpdating { get; set; } = DateTime.Now;
-
         /// <summary>
         /// Creates a new encyclopedia evolution.
         /// </summary>

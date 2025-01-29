@@ -12,10 +12,12 @@ namespace DigitalWorldOnline.Commons.Packets.AuthenticationServer
         /// </summary>
         public ServerListPacket(IEnumerable<ServerObject> servers)
         {
-            Type(PacketNumber);
-            WriteByte((byte)servers.Count());
+            var serverObjects = servers.ToList();
 
-            foreach (var server in servers)
+            Type(PacketNumber);
+            WriteByte((byte)serverObjects.Count());
+
+            foreach (var server in serverObjects)
             {
                 WriteInt((int)server.Id);
                 WriteString(server.Name);

@@ -22,7 +22,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\Infra\DigitalWorldOnline.Infraestructure\DigitalWorldOnline.Infraestructure.csproj" />
+		<ProjectReference Include="..\..\Infra\DigitalWorldOnline.Infrastructure\DigitalWorldOnline.Infrastructure.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

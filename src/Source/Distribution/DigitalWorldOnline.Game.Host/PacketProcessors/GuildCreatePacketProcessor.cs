@@ -4,13 +4,16 @@ using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums;
+using DigitalWorldOnline.Commons.Enums.Character;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Models.Mechanics;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.MapServer;
+using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -21,17 +24,27 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public GameServerPacketEnum Type => GameServerPacketEnum.CreateGuild;
 
         private readonly MapServer _mapServer;
+        private readonly EventServer _eventServer;
+        private readonly DungeonsServer _dungeonsServer;
+        private readonly PvpServer _pvpServer;
         private readonly ISender _sender;
         private readonly ILogger _logger;
         private readonly IMapper _mapper;
 
         public GuildCreatePacketProcessor(
             MapServer mapServer,
+            EventServer eventServer,
+            DungeonsServer dungeonsServer,
+            PvpServer pvpServer,
             ISender sender,
             ILogger logger,
-            IMapper mapper)
+            IMapper mapper
+        )
         {
             _mapServer = mapServer;
+            _eventServer = eventServer;
+            _dungeonsServer = dungeonsServer;
+            _pvpServer = pvpServer;
             _sender = sender;
             _logger = logger;
             _mapper = mapper;
@@ -42,8 +55,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var packet = new GamePacketReader(packetData);
 
             var guildName = packet.ReadString();
+
             packet.Skip(1);
-            var itemSlot = packet.ReadByte();
+
+            var itemSlot = packet.ReadShort();
+            var npcId = packet.ReadInt();
+
+            //_logger.Information($"GuildName: {guildName} | itemSlot: {itemSlot} | Npc: {npcId}");
 
             var nameTaken = await _sender.Send(new GuildByGuildNameQuery(guildName)) != null;
             var guildPermit = client.Tamer.Inventory.FindItemBySlot(itemSlot);
@@ -60,7 +78,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             guild.AddMember(client.Tamer, GuildAuthorityTypeEnum.Master);
             guild.AddHistoricEntry(GuildHistoricTypeEnum.GuildCreate, guild.Master, guild.Master);
 
-            client.Tamer.SetGuild(_mapper.Map<GuildModel>(await _sender.Send(new CreateGuildCommand(guild))));
+            client.Tamer.SetGuild(guild);
+
+            await _sender.Send(new CreateGuildCommand(guild));
 
             _logger.Debug($"Sending guild create success packet for character {client.TamerId}...");
             client.Send(new GuildCreateSuccessPacket(client.Tamer.Name, itemSlot, guildName));
@@ -72,7 +92,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             client.Send(new GuildHistoricPacket(client.Tamer.Guild!.Historic));
 
             _logger.Debug($"Getting guild rank position for guild {client.Tamer.Guild.Id}...");
-            
+
             var guildRank = await _sender.Send(new GuildCurrentRankByGuildIdQuery(client.Tamer.Guild.Id));
 
             if (guildRank > 0 && guildRank <= 100)
@@ -81,11 +101,32 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 client.Send(new GuildRankPacket(guildRank));
             }
 
-            _logger.Verbose($"Character {client.TamerId} created guild {client.Tamer.Guild.Id} {client.Tamer.Guild.Name}.");
+            _logger.Verbose(
+                $"Character {client.TamerId} created guild {client.Tamer.Guild.Id} {client.Tamer.Guild.Name}.");
 
-            _mapServer.BroadcastForTargetTamers(client.TamerId, new UnloadTamerPacket(client.Tamer).Serialize());
-            _mapServer.BroadcastForTargetTamers(client.TamerId, new LoadTamerPacket(client.Tamer).Serialize());
-            _mapServer.BroadcastForTargetTamers(client.TamerId, new LoadBuffsPacket(client.Tamer).Serialize());
+            _mapServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
+
+            _pvpServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
+
+            _eventServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
+
+            _dungeonsServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
 
             client.Tamer.Inventory.RemoveOrReduceItem(guildPermit, 1);
             await _sender.Send(new UpdateItemCommand(guildPermit));

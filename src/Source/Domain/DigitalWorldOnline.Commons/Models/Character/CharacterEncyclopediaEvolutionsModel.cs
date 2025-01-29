@@ -40,19 +40,8 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public CharacterEncyclopediaModel? Encyclopedia { get; private set; }
 
         /// <summary>
-        /// Owned digimons.
-        /// </summary>
-        public EvolutionAssetModel? Evolution { get; private set; }
-
-        /// <summary>
         /// Character base info.
         /// </summary>
         public DigimonBaseInfoAssetModel? BaseInfo { get; private set; }
-
-        public CharacterEncyclopediaEvolutionsModel()
-        {
-            
-        }
-    
     }
 }

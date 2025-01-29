@@ -4,7 +4,7 @@ using MediatR;
 
 namespace DigitalWorldOnline.Application.Separar.Queries
 {
-    public class DigimonEvolutionAssetsByTypeQueryHandler : IRequestHandler<DigimonEvolutionAssetsByTypeQuery, EvolutionAssetDTO>
+    public class DigimonEvolutionAssetsByTypeQueryHandler : IRequestHandler<DigimonEvolutionAssetsByTypeQuery, EvolutionAssetDTO?>
     {
         private readonly IServerQueriesRepository _repository;
 
@@ -13,7 +13,7 @@ namespace DigitalWorldOnline.Application.Separar.Queries
             _repository = repository;
         }
 
-        public async Task<EvolutionAssetDTO> Handle(DigimonEvolutionAssetsByTypeQuery request, CancellationToken cancellationToken)
+        public async Task<EvolutionAssetDTO?> Handle(DigimonEvolutionAssetsByTypeQuery request, CancellationToken cancellationToken)
         {
             return await _repository.GetDigimonEvolutionAssetsByTypeAsync(request.Type);
         }

@@ -6,6 +6,7 @@ using DigitalWorldOnline.Commons.Models.Chat;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -18,15 +19,18 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly PartyManager _partyManager;
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
         private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
 
-        public PartyMessagePacketProcessor(PartyManager partyManager, MapServer mapServer, DungeonsServer dungeonsServer, PvpServer pvpServer, ILogger logger, ISender sender)
+        public PartyMessagePacketProcessor(PartyManager partyManager, MapServer mapServer, DungeonsServer dungeonsServer,
+            EventServer eventServer, PvpServer pvpServer, ILogger logger, ISender sender)
         {
             _partyManager = partyManager;
             _mapServer = mapServer;
             _dungeonServer = dungeonsServer;
+            _eventServer = eventServer;
             _pvpServer = pvpServer;
             _logger = logger;
             _logger = logger;
@@ -52,6 +56,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             {
                 var targetMessage = _mapServer.FindClientByTamerId(memberId);
                 var targetDungeon = _dungeonServer.FindClientByTamerId(memberId);
+                var targetEvent = _eventServer.FindClientByTamerId(memberId);
                 var targetPvp = _pvpServer.FindClientByTamerId(memberId);
 
                 if (targetMessage != null)
@@ -59,6 +64,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 
                 if (targetDungeon != null)
                     targetDungeon.Send(new PartyMessagePacket(client.Tamer.Name, message).Serialize());
+
+                if (targetEvent != null)
+                    targetEvent.Send(new PartyMessagePacket(client.Tamer.Name, message).Serialize());
 
                 if (targetPvp != null)
                     targetPvp.Send(new PartyMessagePacket(client.Tamer.Name, message).Serialize());

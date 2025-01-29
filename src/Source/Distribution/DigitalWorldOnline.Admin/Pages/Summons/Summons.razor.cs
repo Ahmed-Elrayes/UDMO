@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using MudBlazor;
 using Serilog;
 using MediatR;
+using System.Linq;
+using System;
 
 namespace DigitalWorldOnline.Admin.Pages.Summons
 {
@@ -42,19 +44,25 @@ namespace DigitalWorldOnline.Admin.Pages.Summons
 
         private async Task<TableData<SummonViewModel>> ServerReload(TableState state)
         {
+            var filterValue = _filterParameter?.Value;
+            Console.WriteLine($"Filter Value: {filterValue}"); // Debugging
+
             var summons = await Sender.Send(
                 new GetSummonsQuery(
                     state.Page,
                     state.PageSize,
                     state.SortLabel,
-                    (SortDirectionEnum)state.SortDirection.GetHashCode(),
-                    _filterParameter?.Value
+                    SortDirectionEnum.Asc,
+                    filterValue
                 )
             );
 
+            Console.WriteLine($"Summons Count After Query: {summons.Registers.Count()}"); // Debugging
+
             var pageData = Mapper.Map<IEnumerable<SummonViewModel>>(summons.Registers);
-            return new TableData<SummonViewModel>() { TotalItems = summons.TotalRegisters, Items = pageData };
+            return new TableData<SummonViewModel>() { TotalItems = summons.TotalRegisters,Items = pageData };
         }
+
 
         private void Create()
         {
@@ -81,9 +89,9 @@ namespace DigitalWorldOnline.Admin.Pages.Summons
                 await Refresh();
         }
 
-        private void Update(long id)
+        private void ViewSummonMobs(long id)
         {
-            Nav.NavigateTo($"/summons/update/{id}");
+            Nav.NavigateTo($"/summons/summonMobs/{id}");
         }
 
         private async Task Delete(long id)

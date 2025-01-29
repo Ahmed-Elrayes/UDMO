@@ -47,17 +47,18 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         {
             var packet = new GamePacketReader(packetData);
 
-            _logger.Debug($"Getting parameters...");
+            //_logger.Information($"--- PersonalShop View Packet 1515 ---");
+
             packet.Skip(4);
             var handler = packet.ReadInt();
 
-            _logger.Debug($"{handler}");
-
+            _logger.Debug($"Searching personal shop with handler {handler}...");
             var PersonalShop = _mapServer.FindClientByTamerHandle(handler);
 
             if (PersonalShop != null)
             {
-                _logger.Debug($"Encontrado jogador {PersonalShop.Tamer.Name} com a Loja {PersonalShop.Tamer.ShopName} {handler}.");
+                _logger.Debug($"Find Tamer {PersonalShop.Tamer.Name} with shop {PersonalShop.Tamer.ShopName} - {handler}.");
+
                 foreach (var item in PersonalShop.Tamer.TamerShop.Items)
                 {
                     item.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == item.ItemId));
@@ -72,42 +73,55 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     }
                 }
 
+
                 _logger.Debug($"Sending consigned shop item list view packet...");
                 client.Send(new PersonalShopItemsViewPacket(PersonalShop.Tamer.TamerShop, PersonalShop.Tamer.ShopName));
             }
-
-            _logger.Debug($"Searching consigned shop with handler {handler}...");
-            var consignedShop = _mapper.Map<ConsignedShop>(await _sender.Send(new ConsignedShopByHandlerQuery(handler)));
-
-            if (consignedShop != null)
+            else
             {
-                _logger.Debug($"Encontrado Loja {consignedShop.ShopName} do Jogador {handler}.");
-                var seller = _mapper.Map<CharacterModel>(await _sender.Send(new CharacterAndItemsByIdQuery(consignedShop.CharacterId)));
-                if (seller != null) {
+                _logger.Debug($"Searching consigned shop with handler {handler}...");
+                var consignedShop = _mapper.Map<ConsignedShop>(await _sender.Send(new ConsignedShopByHandlerQuery(handler)));
 
-                    foreach (var item in seller.ConsignedShopItems.EquippedItems)
+                if (consignedShop != null)
+                {
+                    var seller = _mapper.Map<CharacterModel>(await _sender.Send(new CharacterAndItemsByIdQuery(consignedShop.CharacterId)));
+
+                    int count = seller.ConsignedShopItems.EquippedItems.GroupBy(x => x.ItemId).ToList().Count;
+
+                    if (seller != null)
                     {
-                        item.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == item.ItemId));
-
-                        //TODO: generalizar isso em rotina
-                        if (item.ItemId > 0 && item.ItemInfo == null)
+                        foreach (var item in seller.ConsignedShopItems.EquippedItems)
                         {
-                            item.SetItemId();
-                            PersonalShop.Tamer.TamerShop.CheckEmptyItems();
-                            _logger.Debug($"Updating consigned shop item list...");
-                            await _sender.Send(new UpdateItemsCommand(seller.ConsignedShopItems));
+                            item.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == item.ItemId));
+  
+                            if (item.ItemId > 0 && item.ItemInfo == null)
+                            {
+                                item.SetItemId();
+
+                                PersonalShop.Tamer.TamerShop.CheckEmptyItems();
+
+                                await _sender.Send(new UpdateItemsCommand(seller.ConsignedShopItems));
+                            }
+                           
                         }
                     }
+
+                    if (seller.Name == client.Tamer.Name)
+                    {
+                        _logger.Debug($"Sending consigned shop item list view packet for owner");
+                        client.Send(new ConsignedShopItemsViewPacket(consignedShop, seller.ConsignedShopItems, seller.Name, true));
+                    }
+                    else
+                    {
+                        _logger.Debug($"Sending consigned shop item list view packet...");
+                        client.Send(new ConsignedShopItemsViewPacket(consignedShop, seller.ConsignedShopItems, seller.Name));
+                    }
                 }
-                if (seller.Name == client.Tamer.Name) {
-                    _logger.Debug($"Sending consigned shop item list view packet...");
-                    client.Send(new ConsignedShopItemsViewPacket(consignedShop, seller.ConsignedShopItems, seller.Name, true));
-                } else
+                else
                 {
-                    _logger.Debug($"Sending consigned shop item list view packet...");
-                    client.Send(new ConsignedShopItemsViewPacket(consignedShop, seller.ConsignedShopItems, seller.Name));
+                    _logger.Error($"Personal or Consigned Shop not found !!");
                 }
-            }
+            }     
         }
     }
 }

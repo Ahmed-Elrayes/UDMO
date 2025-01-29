@@ -40,6 +40,42 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteInt(duration);
             WriteInt(SkillCode);
         }
+
+        // ---------------------------------------------------------------------------------------------
+
+        public class AddDotDebuffPacket : PacketWriter
+        {
+            private const int PacketNumber = 4011;
+            public AddDotDebuffPacket(int hitHandler, int targetHandler, int nBuffCode, byte nHpRate, int nDamage, byte bDie)
+            {
+                Type(PacketNumber);
+                WriteUInt((uint)hitHandler);    // nHitterUID
+                WriteUInt((uint)targetHandler); // nTargetUID
+                WriteUShort((ushort)nBuffCode); // nBuffCode
+                WriteByte(nHpRate);             // nHpRate
+                WriteInt(nDamage);              // nDamage
+                WriteByte(bDie);                // bDie
+            }
+        }
+
+        // ---------------------------------------------------------------------------------------------
+        
+        public class SkillBuffPacket :PacketWriter
+        {
+            private const int PacketNumber = 4012;
+            public SkillBuffPacket(int hitHandler,int nBuffCode,byte skillLevel,int time,int skillCode)
+            {
+                Type(PacketNumber);
+                WriteUInt((uint)hitHandler);
+                WriteUShort((ushort)nBuffCode);
+                WriteByte(skillLevel);
+                WriteUInt((uint)time);
+                WriteUInt((uint)skillCode);
+            }
+        }
+        
+        // ---------------------------------------------------------------------------------------------
+
         public class AddStunDebuffPacket : PacketWriter
         {
             private const int PacketNumber = 4013;
@@ -53,5 +89,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
 
             }
         }
+
+        // ---------------------------------------------------------------------------------------------
     }
 }

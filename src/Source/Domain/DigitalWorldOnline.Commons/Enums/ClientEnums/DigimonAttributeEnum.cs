@@ -8,4 +8,12 @@
         Virus = 4,
         Unknown = 5
     }
+    public enum DigimonAttributePacketEnum
+    {   
+        None = -1,
+        Data = 0,
+        Vaccine = 1,
+        Virus = 2,
+        Unknown = 3
+    }
 }

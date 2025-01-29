@@ -1,8 +1,14 @@
-﻿using DigitalWorldOnline.Application.Separar.Commands.Update;
+﻿using AutoMapper;
+using DigitalWorldOnline.Application;
+using DigitalWorldOnline.Application.Separar.Commands.Update;
+using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
+using DigitalWorldOnline.Commons.Models.Asset;
+using DigitalWorldOnline.Commons.Models.Character;
+using DigitalWorldOnline.Commons.Models.Digimon;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.Items;
 using DigitalWorldOnline.Commons.Writers;
@@ -15,13 +21,21 @@ namespace DigitalWorldOnline.Game.PacketProcessors
     {
         public GameServerPacketEnum Type => GameServerPacketEnum.EncyclopediaDeckBuffUse;
 
+        private readonly AssetsLoader _assets;
         private readonly ISender _sender;
         private readonly ILogger _logger;
+        private readonly IMapper _mapper;
 
-        public EncyclopediaDeckBuffUsePacketProcessor(ISender sender, ILogger logger)
+        public EncyclopediaDeckBuffUsePacketProcessor(
+            AssetsLoader assets,
+            ISender sender,
+            ILogger logger,
+            IMapper mapper)
         {
+            _assets = assets;
             _sender = sender;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task Process(GameClient client, byte[] packetData)
@@ -32,15 +46,18 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var encyclopedia = client.Tamer.Encyclopedia;
 
-            _logger.Information($"Getting encyclopedia data");
+            DeckBuffModel? deckBuff = _assets.DeckBuffs.FirstOrDefault(x => x.GroupIdX == deckBuffId);
 
-            var character = client.Tamer;
+            client.Tamer.UpdateDeckBuffId(deckBuffId == 0 ? null : deckBuffId, deckBuff);
 
-            character.UpdateDeckBuffId(deckBuffId == 0 ? null : deckBuffId);
+            await _sender.Send(new UpdateCharacterDeckBuffCommand(client.Tamer));
 
-            await _sender.Send(new UpdateCharacterDeckBuffCommand(character));
+            /*_logger.Information(
+                $"\nCurrent MHP: {client.Tamer.Partner.HP}\nCurrent AS: {client.Tamer.Partner.AS}\n" +
+                $"Current AT: {client.Tamer.Partner.AT}\nCurrent CD: {client.Tamer.Partner.CD}\nCurrent SCD: {client.Tamer.Partner.SCD}" +
+                $"\nCurrent SK: {client.Tamer.Partner.SKD}");*/
 
-            client.Send(new EncyclopediaDeckBuffUsePacket(character));
+            client.Send(new EncyclopediaDeckBuffUsePacket(client.Tamer.Partner.HP, client.Tamer.Partner.AS));
         }
     }
 }

@@ -25,7 +25,7 @@
         Unknown205 = 205, //B + ((스킬 Lv - 1) *증가수치)
         Unknown206 = 206, //B + ((스킬 Lv - 1) *증가수치)
         Unknown207 = 207, //B + ((스킬 Lv - 1) *증가수치)
-        Unknown208 = 208, //Time_DamageS + ((스킬 Lv - 1) *증가수치)
+        Unknown208 = 208, //Time_DamageS + ((Skill Lv - 1) *Increase value)
         Unknown301 = 301, //A = A - B
         Unknown302 = 302, //A = A - (AxB÷100)
         Unknown401 = 401, //B~C 이벤트 동기화

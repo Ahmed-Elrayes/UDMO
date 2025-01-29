@@ -64,6 +64,9 @@ namespace DigitalWorldOnline.Game.Managers
             var sizeCr = sizeMultiplier * baseInfo.CTValue + statusInfo.CTValue;
             var finalCr = (int)Math.Floor(sizeCr);
 
+            var sizeCd = 100;
+            var finalCd = sizeCd;
+
             var sizeDe = sizeMultiplier * baseInfo.DEValue + statusInfo.DEValue;
             var applyDe = (int)(statusInfo.DEValue * (statusApply.ApplyValue - 100) * 0.01f);
             var finalDe = (int)Math.Floor(sizeDe + applyDe);
@@ -79,6 +82,7 @@ namespace DigitalWorldOnline.Game.Managers
                 finalAt,
                 finalBl,
                 finalCr,
+                finalCd,
                 finalDe,
                 finalDs,
                 finalEv,

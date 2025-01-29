@@ -29,9 +29,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var encyclopedia = client.Tamer.Encyclopedia;
 
-            _logger.Information($"Getting encyclopedia data");
+            _logger.Debug($"Getting encyclopedia data");
 
-            _logger.Information($"Encyclopedia's count: {encyclopedia.Count}");
+            _logger.Debug($"Encyclopedia's count: {encyclopedia.Count}");
 
             client.Send(new EncyclopediaLoadPacket(encyclopedia));
         }

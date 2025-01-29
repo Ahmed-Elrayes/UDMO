@@ -21,8 +21,8 @@ namespace DigitalWorldOnline.Commons.Packets.PersonalShop
             WriteInt(consignedShop.ItemId);
             WriteString(consignedShop.ShopName);
             WriteString(ownerName);
+            
             WriteInt(consignedShopItems.Count);
-
             foreach (var item in consignedShopItems.Items.Where(x => x.ItemId > 0))
             {
                 WriteBytes(item.ToArray());
@@ -30,14 +30,13 @@ namespace DigitalWorldOnline.Commons.Packets.PersonalShop
             }
 
             WriteInt(consignedShopItems.Count);
-
             foreach (var item in consignedShopItems.Items.Where(x => x.ItemId > 0))
             {
                 WriteBytes(item.ToArray());
                 WriteInt64(item.TamerShopSellPrice);
             }
-            if (isOwner == true) WriteByte(1);
-            else WriteByte(0);
+
+            WriteByte(isOwner ? (byte)1 : (byte)0);
         }
 
         public ConsignedShopItemsViewPacket()

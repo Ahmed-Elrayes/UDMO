@@ -32,17 +32,12 @@
 
         public int TimeForCrowdControl()
         {
-            switch (SkillId)
+            return SkillId switch
             {
-                case 7571431:
-                case 7111031:
-                    return 3;
-
-                case 7110731:
-                    return 4;
-            }
-
-            return 0;
+                7571431 or 7111031 => 3,
+                7110731 => 4,
+                _ => 0
+            };
         }
         }
 }

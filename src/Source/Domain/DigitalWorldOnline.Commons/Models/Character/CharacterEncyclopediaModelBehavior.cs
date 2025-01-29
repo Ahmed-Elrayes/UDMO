@@ -49,7 +49,7 @@
         }
 
         /// <summary>
-        /// Unlocks the target evolution.
+        /// Set Encyclopedia reward as true.
         /// </summary>
         public void SetRewardAllowed(bool value = true) => IsRewardAllowed = value;
 

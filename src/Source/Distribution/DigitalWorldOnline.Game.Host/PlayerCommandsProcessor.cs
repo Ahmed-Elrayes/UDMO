@@ -11,6 +11,11 @@ using MediatR;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using System.Text.RegularExpressions;
+using DigitalWorldOnline.Application.Separar.Commands.Create;
+using DigitalWorldOnline.Application.Separar.Commands.Delete;
+using DigitalWorldOnline.Commons.Models.Base;
+using DigitalWorldOnline.Commons.Models.Character;
+using DigitalWorldOnline.Commons.Packets.GameServer;
 
 namespace DigitalWorldOnline.Game
 {
@@ -125,6 +130,136 @@ namespace DigitalWorldOnline.Game
                     }
                     break;
 
+                case "time":
+                    {
+                        var regex = @"^time\s*$";
+                        var match = Regex.Match(message, regex, RegexOptions.IgnoreCase);
+
+                        if (!match.Success)
+                        {
+                            client.Send(new SystemMessagePacket($"Unknown command.\nType !time"));
+                            break;
+                        }
+
+                        client.Send(new SystemMessagePacket($"Server Time is: {DateTime.UtcNow}"));
+                    }
+                    break;
+                
+                // --- DECK -------------------------------
+
+                case "deckload":
+                    {
+                        var regex = @"^deckload\s*$";
+                        var match = Regex.Match(message, regex, RegexOptions.IgnoreCase);
+
+                        if (!match.Success)
+                        {
+                            client.Send(new SystemMessagePacket($"Unknown command.\nType !deckload"));
+                            break;
+                        }
+
+                        var evolution = client.Partner.Evolutions[0];
+
+                        _logger.Information(
+                            $"Evolution ID: {evolution.Id} | Evolution Type: {evolution.Type} | Evolution Unlocked: {evolution.Unlocked}");
+
+                        var evoInfo = _assets.EvolutionInfo.FirstOrDefault(x => x.Type == client.Partner.BaseType)?.Lines
+                            .FirstOrDefault(x => x.Type == evolution.Type);
+
+                        _logger.Information($"EvoInfo ID: {evoInfo.Id}");
+                        _logger.Information($"EvoInfo EvolutionId: {evoInfo.EvolutionId}");
+
+                        // --- CREATE DB ----------------------------------------------------------------------------------------
+
+                        var digimonEvolutionInfo = _assets.EvolutionInfo.First(x => x.Type == client.Partner.BaseType);
+
+                        var digimonEvolutions = client.Partner.Evolutions;
+
+                        var encyclopediaExists =
+                            client.Tamer.Encyclopedia.Exists(x => x.DigimonEvolutionId == digimonEvolutionInfo.Id);
+
+                        if (!encyclopediaExists)
+                        {
+                            if (digimonEvolutionInfo != null)
+                            {
+                                var newEncyclopedia = CharacterEncyclopediaModel.Create(client.TamerId,
+                                    digimonEvolutionInfo.Id, client.Partner.Level, client.Partner.Size, 0, 0, 0, 0, 0,
+                                    false, false);
+
+                                digimonEvolutions?.ForEach(x =>
+                                {
+                                    var evolutionLine = digimonEvolutionInfo.Lines.FirstOrDefault(y => y.Type == x.Type);
+
+                                    byte slotLevel = 0;
+
+                                    if (evolutionLine != null)
+                                        slotLevel = evolutionLine.SlotLevel;
+
+                                    newEncyclopedia.Evolutions.Add(
+                                        CharacterEncyclopediaEvolutionsModel.Create(newEncyclopedia.Id, x.Type, slotLevel,
+                                            Convert.ToBoolean(x.Unlocked)));
+                                });
+
+                                var encyclopediaAdded =
+                                    await _sender.Send(new CreateCharacterEncyclopediaCommand(newEncyclopedia));
+
+                                client.Tamer.Encyclopedia.Add(encyclopediaAdded);
+
+                                _logger.Information($"Digimon Type {client.Partner.BaseType} encyclopedia created !!");
+                            }
+                        }
+                        else
+                        {
+                            _logger.Information($"Encyclopedia already exist !!");
+                        }
+
+                        // --- UNLOCK -------------------------------------------------------------------------------------------
+
+                        var encyclopedia =
+                            client.Tamer.Encyclopedia.First(x => x.DigimonEvolutionId == evoInfo.EvolutionId);
+
+                        _logger.Information($"Encyclopedia is: {encyclopedia.Id}, evolution id: {evoInfo.EvolutionId}");
+
+                        if (encyclopedia != null)
+                        {
+                            var encyclopediaEvolution =
+                                encyclopedia.Evolutions.First(x => x.DigimonBaseType == evolution.Type);
+
+                            if (!encyclopediaEvolution.IsUnlocked)
+                            {
+                                encyclopediaEvolution.Unlock();
+
+                                await _sender.Send(new UpdateCharacterEncyclopediaEvolutionsCommand(encyclopediaEvolution));
+
+                                int LockedEncyclopediaCount = encyclopedia.Evolutions.Count(x => x.IsUnlocked == false);
+
+                                if (LockedEncyclopediaCount <= 0)
+                                {
+                                    encyclopedia.SetRewardAllowed();
+                                    await _sender.Send(new UpdateCharacterEncyclopediaCommand(encyclopedia));
+                                }
+                            }
+                            else
+                            {
+                                _logger.Information($"Evolution already unlocked on encyclopedia !!");
+                            }
+                        }
+
+                        // ------------------------------------------------------------------------------------------------------
+
+                        client.Send(new SystemMessagePacket($"Encyclopedia verifyed and updated !!"));
+                    }
+                    break;
+
+
+                // --- DEFAULT ----------------------------
+
+                default:
+                    client.Send(new SystemMessagePacket($"Invalid Command !!\nType !help"));
+                    break;
+
+                // --- HELP -------------------------------
+
                 case "help":
                     {
                         if (command[1] == "inv")
@@ -143,16 +278,73 @@ namespace DigitalWorldOnline.Game
                         {
                             client.Send(new SystemMessagePacket("!stats: Show hidden stats"));
                         }
+                        else if (command[1] == "time")
+                        {
+                            client.Send(new SystemMessagePacket("!time: Show the server time"));
+                        }
+                        else if (command[1] == "Done")
+                        {
+                            client.Send(new SystemMessagePacket("!Done: is used to sacrifise the digimon you want to get ruin item"));
+                        }
                         else
                         {
-                            client.Send(new SystemMessagePacket("Commands:\n1. !clear\n2. !stats\nType !help {command} for more details."));
+                            client.Send(new SystemMessagePacket("Commands:\n1. !clear\n2. !stats\n3. !time\nType !help {command} for more details."));
                         }
                     }
                     break;
 
-                default:
-                    client.Send(new SystemMessagePacket($"Invalid Command !!\nType !help"));
-                    break;
+
+                    // --- PVP --------------------------------
+
+                    #region Pvp
+
+                    /*case "pvp":
+                        {
+                            var regex = @"(pvp\son){1}|(pvp\soff){1}";
+                            var match = Regex.Match(message, regex, RegexOptions.IgnoreCase);
+
+                            if (!match.Success)
+                            {
+                                client.Send(new SystemMessagePacket($"Unknown command.\nType !pvp (on/off)"));
+                                break;
+                            }
+
+                            if (client.Tamer.InBattle)
+                            {
+                                client.Send(new SystemMessagePacket($"You can't turn off pvp on battle !"));
+                                break;
+                            }
+
+                            switch (command[1])
+                            {
+                                case "on":
+                                    {
+                                        if (client.Tamer.PvpMap == false)
+                                        {
+                                            client.Tamer.PvpMap = true;
+                                            client.Send(new NoticeMessagePacket($"PVP turned on !!"));
+                                        }
+                                        else client.Send(new NoticeMessagePacket($"PVP is already on ..."));
+                                    }
+                                    break;
+
+                                case "off":
+                                    {
+                                        if (client.Tamer.PvpMap == true)
+                                        {
+                                            client.Tamer.PvpMap = false;
+                                            client.Send(new NoticeMessagePacket($"PVP turned off !!"));
+                                        }
+                                        else client.Send(new NoticeMessagePacket($"PVP is already off ..."));
+                                    }
+                                    break;
+                            }
+                        }
+                        break;*/
+
+                    #endregion
+
+
             }
         }
 

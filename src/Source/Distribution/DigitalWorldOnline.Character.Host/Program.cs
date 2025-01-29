@@ -3,15 +3,15 @@ using DigitalWorldOnline.Application.Extensions;
 using DigitalWorldOnline.Application.Services;
 using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Repositories.Admin;
-using DigitalWorldOnline.Infraestructure;
-using DigitalWorldOnline.Infraestructure.Extensions;
-using DigitalWorldOnline.Infraestructure.Mapping;
-using DigitalWorldOnline.Infraestructure.Repositories.Account;
-using DigitalWorldOnline.Infraestructure.Repositories.Admin;
-using DigitalWorldOnline.Infraestructure.Repositories.Character;
-using DigitalWorldOnline.Infraestructure.Repositories.Config;
-using DigitalWorldOnline.Infraestructure.Repositories.Routine;
-using DigitalWorldOnline.Infraestructure.Repositories.Server;
+using DigitalWorldOnline.Infrastructure;
+using DigitalWorldOnline.Infrastructure.Extensions;
+using DigitalWorldOnline.Infrastructure.Mapping;
+using DigitalWorldOnline.Infrastructure.Repositories.Account;
+using DigitalWorldOnline.Infrastructure.Repositories.Admin;
+using DigitalWorldOnline.Infrastructure.Repositories.Character;
+using DigitalWorldOnline.Infrastructure.Repositories.Config;
+using DigitalWorldOnline.Infrastructure.Repositories.Routine;
+using DigitalWorldOnline.Infrastructure.Repositories.Server;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +35,18 @@ namespace DigitalWorldOnline.Character
         {
             Console.WriteLine(((Exception)e.ExceptionObject).InnerException);
             if (e.IsTerminating)
+            {
+                var message = "";
+                var exceptionStackTrace = "";
+                if (e.ExceptionObject is Exception exception) 
+                {
+                    message =  exception.Message;
+                    exceptionStackTrace = exception.StackTrace;
+                }
+                Console.WriteLine($"{message}");
+                Console.WriteLine($"{exceptionStackTrace}");
                 Console.WriteLine("Terminating by unhandled exception...");
+            }
             else
                 Console.WriteLine("Received unhandled exception.");
 
@@ -72,7 +83,6 @@ namespace DigitalWorldOnline.Character
                     services.AddScoped<IRoutineRepository, RoutineRepository>();
 
                     //services.AddScoped<IEmailService, EmailService>();
-
                     services.AddSingleton<ISender, ScopedSender<Mediator>>();
                     services.AddSingleton<IProcessor, CharacterPacketProcessor>();
                     services.AddSingleton(ConfigureLogger(context.Configuration));

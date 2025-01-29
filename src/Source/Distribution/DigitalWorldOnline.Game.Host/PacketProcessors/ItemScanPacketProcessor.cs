@@ -3,6 +3,7 @@ using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Commons.DTOs.Base;
 using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums;
+using DigitalWorldOnline.Commons.Enums.Account;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
@@ -13,10 +14,12 @@ using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.Items;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.GameHost;
-using DigitalWorldOnline.Infraestructure.Migrations;
+using DigitalWorldOnline.Infrastructure.Migrations;
 using MediatR;
 using Serilog;
 using System.Net.Mime;
+using DigitalWorldOnline.Application.Separar.Queries;
+using DigitalWorldOnline.GameHost.EventsServer;
 
 
 namespace DigitalWorldOnline.Game.PacketProcessors
@@ -27,17 +30,26 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         private readonly AssetsLoader _assets;
         private readonly MapServer _mapServer;
+        private readonly DungeonsServer _dungeonsServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ISender _sender;
         private readonly ILogger _logger;
 
         public ItemScanPacketProcessor(
             AssetsLoader assets,
             MapServer mapServer,
+            DungeonsServer dungeonsServer,
+            EventServer eventServer,
+            PvpServer pvpServer,
             ISender sender,
             ILogger logger)
         {
             _assets = assets;
             _mapServer = mapServer;
+            _dungeonsServer = dungeonsServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _sender = sender;
             _logger = logger;
         }
@@ -53,17 +65,36 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var amountToScan = packet.ReadShort();
 
             var scannedItem = client.Tamer.Inventory.FindItemBySlot(slotToScan);
-            if (scannedItem == null || scannedItem.ItemId == 0 || scannedItem.ItemInfo == null)
+            var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(client.Tamer.Location.MapId));
+
+            if (scannedItem == null || scannedItem.ItemId == 0 || scannedItem.ItemInfo == null) //fazer aqui
             {
+                //sistema de banimento permanente
+                var banProcessor = SingletonResolver.GetService<BanForCheating>();
+                var banMessage = banProcessor.BanAccountWithMessage(client.AccountId, client.Tamer.Name,
+                    AccountBlockEnum.Permanent, "Cheating", client, "You tried to scan an invalid item using a cheat method, So be happy with ban!");
+
+                var chatPacket = new NoticeMessagePacket(banMessage).Serialize();
+                client.SendToAll(chatPacket); // Envia a mensagem no chat
+
                 client.Send(new SystemMessagePacket($"Invalid item at slot {slotToScan}."));
                 _logger.Warning($"Invalid item on slot {slotToScan} for tamer {client.TamerId} on scanning.");
+
+                // client.Send(new DisconnectUserPacket($"YOU HAVE BEEN PERMANENTLY BANNED").Serialize());
+
                 return;
             }
 
             if (client.Tamer.Inventory.CountItensById(scannedItem.ItemId) < amountToScan)
             {
-                _logger.Error($"[DISCONNECTED] {client.Tamer.Name} try DUPPING in SCANN {amountToScan}x {scannedItem.ItemInfo.Name}, but he has {scannedItem.Amount}x!");
-                client.Disconnect();
+                //sistema de banimento permanente
+                var banProcessor = SingletonResolver.GetService<BanForCheating>();
+                var banMessage = banProcessor.BanAccountWithMessage(client.AccountId, client.Tamer.Name,
+                    AccountBlockEnum.Permanent, "Cheating", client, "You tried to scan an invalid amount of item using a cheat method, So be happy with ban!");
+
+                /*Console.WriteLine(
+                    $"[DISCONNECTED] {client.Tamer.Name} try DUPPING in SCANN {amountToScan}x {scannedItem.ItemInfo.Name}, but he has {scannedItem.Amount}x!");
+                client.Disconnect();*/
                 return;
             }
 
@@ -92,7 +123,8 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 if (!scanAsset.Rewards.Any())
                 {
                     _logger.Warning($"Scan config for item {scanAsset.ItemId} has incorrect rewards configuration.");
-                    client.Send(new SystemMessagePacket($"Scan config for item {scanAsset.ItemId} has incorrect rewards configuration."));
+                    client.Send(new SystemMessagePacket(
+                        $"Scan config for item {scanAsset.ItemId} has incorrect rewards configuration."));
                     break;
                 }
 
@@ -108,17 +140,21 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     if (possibleReward.Chance >= UtilitiesFunctions.RandomDouble())
                     {
-                        var itemRewardAmount = UtilitiesFunctions.RandomInt(possibleReward.MinAmount, possibleReward.MaxAmount);
+                        var itemRewardAmount =
+                            UtilitiesFunctions.RandomInt(possibleReward.MinAmount, possibleReward.MaxAmount);
 
                         var contentItem = new ItemModel();
                         contentItem.SetItemId(possibleReward.ItemId);
                         contentItem.SetAmount(itemRewardAmount);
-                        contentItem.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == possibleReward.ItemId));
-    
+                        contentItem.SetItemInfo(
+                            _assets.ItemInfo.FirstOrDefault(x => x.ItemId == possibleReward.ItemId));
+
                         if (contentItem.ItemInfo == null)
                         {
-                            _logger.Warning($"Invalid item info for item {possibleReward.ItemId} in tamer {client.TamerId} scan.");
-                            client.Send(new SystemMessagePacket($"Invalid item info for item {possibleReward.ItemId}."));
+                            _logger.Warning(
+                                $"Invalid item info for item {possibleReward.ItemId} in tamer {client.TamerId} scan.");
+                            client.Send(
+                                new SystemMessagePacket($"Invalid item info for item {possibleReward.ItemId}."));
                             error = true;
                             break;
                         }
@@ -158,9 +194,40 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                         if (client.Tamer.Inventory.AddItem(contentItem))
                         {
-
                             if (possibleReward.Rare)
-                                _mapServer.BroadcastForChannel(client.Tamer.Channel, new NeonMessagePacket(NeonMessageTypeEnum.Item, client.Tamer.Name, scanAsset.ItemId, possibleReward.ItemId).Serialize());
+                                client.SendToAll(new NeonMessagePacket(NeonMessageTypeEnum.Item, client.Tamer.Name,
+                                    scanAsset.ItemId,
+                                    possibleReward.ItemId).Serialize());
+                            /*switch (mapConfig?.Type)
+                            {
+                                case MapTypeEnum.Dungeon:
+                                    _dungeonsServer.BroadcastForChannel(client.Tamer.Channel,
+                                        new NeonMessagePacket(NeonMessageTypeEnum.Item, client.Tamer.Name,
+                                            scanAsset.ItemId,
+                                            possibleReward.ItemId).Serialize());
+                                    break;
+
+                                case MapTypeEnum.Event:
+                                    _eventServer.BroadcastForChannel(client.Tamer.Channel,
+                                        new NeonMessagePacket(NeonMessageTypeEnum.Item, client.Tamer.Name,
+                                            scanAsset.ItemId,
+                                            possibleReward.ItemId).Serialize());
+                                    break;
+
+                                case MapTypeEnum.Pvp:
+                                    _pvpServer.BroadcastForChannel(client.Tamer.Channel,
+                                        new NeonMessagePacket(NeonMessageTypeEnum.Item, client.Tamer.Name,
+                                            scanAsset.ItemId,
+                                            possibleReward.ItemId).Serialize());
+                                    break;
+
+                                default:
+                                    _mapServer.BroadcastForChannel(client.Tamer.Channel,
+                                        new NeonMessagePacket(NeonMessageTypeEnum.Item, client.Tamer.Name,
+                                            scanAsset.ItemId,
+                                            possibleReward.ItemId).Serialize());
+                                    break;
+                            }*/
 
                             cost += scannedItem.ItemInfo.ScanPrice;
                             scannedItens++;
@@ -190,11 +257,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             if (vipEnabled == 1)
             {
-                _logger.Verbose($"Character {client.TamerId} scanned {scannedItem.ItemId} x{scannedItens} with VIP and obtained {dropList}");
+                _logger.Verbose(
+                    $"Character {client.TamerId} scanned {scannedItem.ItemId} x{scannedItens} with VIP and obtained {dropList}");
             }
             else
             {
-                _logger.Verbose($"Character {client.TamerId} scanned {scannedItem.ItemId} x{scannedItens} at {client.TamerLocation} with NPC {npcId} and obtained {dropList}");
+                _logger.Verbose(
+                    $"Character {client.TamerId} scanned {scannedItem.ItemId} x{scannedItens} at {client.TamerLocation} with NPC {npcId} and obtained {dropList}");
             }
 
             client.Tamer.Inventory.RemoveBits(cost);
@@ -212,11 +281,13 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             await _sender.Send(new UpdateItemListBitsCommand(client.Tamer.Inventory));
             await _sender.Send(new UpdateItemsCommand(client.Tamer.Inventory));
         }
+
         private ItemModel? ApplyValuesChipset(ItemModel newItem)
         {
-
-            var ChipsetInfo = _assets.SkillCodeInfo.FirstOrDefault(x => x.SkillCode == newItem.ItemInfo.SkillCode).Apply.FirstOrDefault(x => x.Type > 0);
-            var ChipsetSkill = _assets.SkillInfo.FirstOrDefault(x => x.SkillId == newItem.ItemInfo.SkillCode).FamilyType;
+            var ChipsetInfo = _assets.SkillCodeInfo.FirstOrDefault(x => x.SkillCode == newItem.ItemInfo.SkillCode).Apply
+                .FirstOrDefault(x => x.Type > 0);
+            var ChipsetSkill = _assets.SkillInfo.FirstOrDefault(x => x.SkillId == newItem.ItemInfo.SkillCode)
+                .FamilyType;
             // Definindo o valor mínimo e máximo para o RNG
 
             Random random = new Random();
@@ -237,6 +308,5 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             newItem.SetFamilyType(ChipsetSkill);
             return newItem;
         }
-
     }
 }

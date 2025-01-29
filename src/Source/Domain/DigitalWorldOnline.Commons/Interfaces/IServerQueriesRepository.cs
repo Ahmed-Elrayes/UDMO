@@ -45,7 +45,7 @@ namespace DigitalWorldOnline.Commons.Interfaces
 
         Task<List<EvolutionAssetDTO>> GetDigimonEvolutionAssetsAsync();
 
-        Task<EvolutionAssetDTO> GetDigimonEvolutionAssetsByTypeAsync(int type);
+        Task<EvolutionAssetDTO?> GetDigimonEvolutionAssetsByTypeAsync(int type);
 
         Task<IList<ChatMessageDTO>> GetAllChatMessagesAsync();
 
@@ -141,11 +141,13 @@ namespace DigitalWorldOnline.Commons.Interfaces
         Task<List<TimeRewardAssetDTO>> GetTimeRewardAssetsAsync();
         Task<List<TimeRewardDTO>> GetTimeRewardEventsAsync();
         Task<List<SummonDTO>> GetSummonAssetsAsync();
+        Task<List<SummonMobDTO>> GetSummonMobAssetsAsync();
         Task<List<NpcColiseumAssetDTO>> GetNpcColiseumAssetsAsync();
         Task<ArenaRankingDTO> GetArenaRankingAsync(ArenaRankingEnum arenaRankingEnum);
         Task<List<ArenaRankingDailyItemRewardsDTO>> GetArenaRankingDailyItemRewardsAsync();
         Task<List<EvolutionArmorAssetDTO>> GetEvolutionArmorAssetsAsync();
         Task<List<ExtraEvolutionNpcAssetDTO>> GetExtraEvolutionNpcAssetAsync();
         Task<List<GotchaAssetDTO>> GetGotchaAssetsAsync();
+        Task<List<DeckBuffAssetDTO>> GetDeckBuffAssetsAsync();
     }
 }

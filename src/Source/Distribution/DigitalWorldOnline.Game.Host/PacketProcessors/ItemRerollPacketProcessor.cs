@@ -373,7 +373,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             new ItemRerollPacket(result, accessorySlot, targetAccessory).Serialize(),
                             new LoadInventoryPacket(client.Tamer.Inventory, InventoryTypeEnum.Inventory).Serialize()));
 
-                    _logger.Information($"Character {client.TamerId} cannot reroll item {targetAccessory.ItemId} status with {consumedStone.ItemId}.");
+                    _logger.Debug($"Character {client.TamerId} cannot reroll item {targetAccessory.ItemId} status with {consumedStone.ItemId}.");
                     return;
                 }
                 else
@@ -465,7 +465,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             new ItemRerollPacket(result, accessorySlot, targetAccessory).Serialize(),
                             new LoadInventoryPacket(client.Tamer.Inventory, InventoryTypeEnum.Inventory).Serialize()));
 
-                    _logger.Information($"Character {client.TamerId} cannot reroll item {targetAccessory.ItemId} status with {consumedStone.ItemId}.");
+                    _logger.Debug($"Character {client.TamerId} cannot reroll item {targetAccessory.ItemId} status with {consumedStone.ItemId}.");
                     return;
                 }
                 else

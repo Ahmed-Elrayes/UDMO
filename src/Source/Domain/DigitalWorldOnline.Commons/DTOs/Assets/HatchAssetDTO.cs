@@ -37,6 +37,9 @@
         /// </summary>
         public int MidClassDataAmount { get; set; }
 
+        public int LowClassLimitLevel { get; set; }
+        public int MidClassLimitLevel { get; set; }
+
         /// <summary>
         /// Low class data insertion break point.
         /// </summary>
@@ -47,9 +50,5 @@
         /// </summary>
         public int MidClassBreakPoint { get; set; }
 
-        /// <summary>
-        /// Reference to the target digimon.
-        /// </summary>
-        public int EggType { get; set; }
     }
 }

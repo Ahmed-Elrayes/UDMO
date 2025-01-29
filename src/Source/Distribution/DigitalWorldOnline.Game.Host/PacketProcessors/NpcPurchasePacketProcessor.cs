@@ -55,6 +55,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var npcItem = npc.Items[shopSlot];
 
             var purchasingItem = new ItemModel();
+
             purchasingItem.SetItemId(npcItem.ItemId);
             purchasingItem.SetAmount(purchaseCount);
             purchasingItem.SetItemInfo(_assets.ItemInfo.First(x => x.ItemId == npcItem.ItemId));
@@ -96,6 +97,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             else
             {
                 var bitsPrice = purchasingItem.ItemInfo.ScanPrice * purchaseCount;
+
                 if (!client.Tamer.Inventory.RemoveBits(bitsPrice))
                 {
                     client.Send(new SystemMessagePacket($"Insufficient bits amount."));

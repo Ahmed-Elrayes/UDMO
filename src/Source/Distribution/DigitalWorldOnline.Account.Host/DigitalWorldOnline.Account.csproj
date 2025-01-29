@@ -24,7 +24,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\Infra\DigitalWorldOnline.Infraestructure\DigitalWorldOnline.Infraestructure.csproj" />
+		<ProjectReference Include="..\..\Infra\DigitalWorldOnline.Infrastructure\DigitalWorldOnline.Infrastructure.csproj" />
+		<ProjectReference Include="..\DigitalWorldOnline.Character.Host\DigitalWorldOnline.Character.csproj" />
+		<ProjectReference Include="..\DigitalWorldOnline.Game.Host\DigitalWorldOnline.Game.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

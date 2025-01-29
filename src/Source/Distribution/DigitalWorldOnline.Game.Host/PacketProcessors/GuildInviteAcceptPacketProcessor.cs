@@ -5,13 +5,12 @@ using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
-using DigitalWorldOnline.Commons.Models.Character;
-using DigitalWorldOnline.Commons.Models.Mechanics;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.MapServer;
+using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.GameHost;
-
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -22,17 +21,26 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public GameServerPacketEnum Type => GameServerPacketEnum.GuildInviteAccept;
 
         private readonly MapServer _mapServer;
+        private readonly EventServer _eventServer;
+        private readonly DungeonsServer _dungeonsServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
         private readonly IMapper _mapper;
 
         public GuildInviteAcceptPacketProcessor(
             MapServer mapServer,
+            EventServer eventServer,
+            DungeonsServer dungeonsServer,
+            PvpServer pvpServer,
             ILogger logger,
             ISender sender,
             IMapper mapper)
         {
             _mapServer = mapServer;
+            _eventServer = eventServer;
+            _dungeonsServer = dungeonsServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
             _mapper = mapper;
@@ -45,8 +53,8 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var guildId = packet.ReadInt();
             var inviterName = packet.ReadString();
 
-            _logger.Debug($"Searching character by name {inviterName}...");
             var inviterCharacter = _mapServer.FindClientByTamerName(inviterName);
+
             if (inviterCharacter == null)
             {
                 _logger.Warning($"Character not found with name {inviterName}.");
@@ -55,6 +63,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             }
 
             var targetGuild = inviterCharacter.Tamer.Guild;
+
             if (targetGuild == null)
             {
                 _logger.Warning($"Guild not found with id {guildId}.");
@@ -62,13 +71,15 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 return;
             }
 
-            _logger.Verbose($"Character {client.TamerId} joinned guild {targetGuild.Id} {targetGuild.Name} through character {inviterCharacter.TamerId} invite.");
+            _logger.Verbose(
+                $"Character {client.TamerId} joinned guild {targetGuild.Id} {targetGuild.Name} through character {inviterCharacter.TamerId} invite.");
 
             var newMember = targetGuild.AddMember(client.Tamer);
             var senderMember = targetGuild.FindMember(inviterCharacter.TamerId);
             senderMember?.SetCharacterInfo(inviterCharacter.Tamer);
 
             var newEntry = targetGuild.AddHistoricEntry(GuildHistoricTypeEnum.MemberJoin, senderMember, newMember);
+
             client.Tamer.SetGuild(targetGuild);
 
             foreach (var guildMember in targetGuild.Members)
@@ -83,9 +94,29 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             _logger.Debug($"Sending guild information packet for character {client.TamerId}...");
             client.Send(new GuildInformationPacket(targetGuild));
 
-            _mapServer.BroadcastForTargetTamers(client.TamerId, new UnloadTamerPacket(client.Tamer).Serialize());
-            _mapServer.BroadcastForTargetTamers(client.TamerId, new LoadTamerPacket(client.Tamer).Serialize());
-            _mapServer.BroadcastForTargetTamers(client.TamerId, new LoadBuffsPacket(client.Tamer).Serialize());
+            _mapServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
+
+            _dungeonsServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
+
+            _eventServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
+
+            _pvpServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                new UnloadTamerPacket(client.Tamer).Serialize(),
+                new LoadTamerPacket(client.Tamer).Serialize(),
+                new LoadBuffsPacket(client.Tamer).Serialize()
+            ));
 
             foreach (var guildMember in targetGuild.Members)
             {
@@ -93,10 +124,24 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 //_mapServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildMemberConnectPacket(client.Tamer).Finalize());
 
                 _logger.Debug($"Sending guild information packet for character {client.TamerId}...");
-                _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildInformationPacket(client.Tamer.Guild).Serialize());
 
                 _logger.Debug($"Sending guild historic packet for character {guildMember.CharacterId}...");
-                _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId, new GuildHistoricPacket(targetGuild.Historic).Serialize());
+                _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId, UtilitiesFunctions.GroupPackets(
+                    new GuildInformationPacket(client.Tamer.Guild).Serialize(),
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize()
+                ));
+                _dungeonsServer.BroadcastForUniqueTamer(guildMember.CharacterId, UtilitiesFunctions.GroupPackets(
+                    new GuildInformationPacket(client.Tamer.Guild).Serialize(),
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize()
+                ));
+                _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId, UtilitiesFunctions.GroupPackets(
+                    new GuildInformationPacket(client.Tamer.Guild).Serialize(),
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize()
+                ));
+                _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId, UtilitiesFunctions.GroupPackets(
+                    new GuildInformationPacket(client.Tamer.Guild).Serialize(),
+                    new GuildHistoricPacket(targetGuild.Historic).Serialize()
+                ));
             }
 
             _logger.Debug($"Getting guild rank position for guild {targetGuild.Id}...");

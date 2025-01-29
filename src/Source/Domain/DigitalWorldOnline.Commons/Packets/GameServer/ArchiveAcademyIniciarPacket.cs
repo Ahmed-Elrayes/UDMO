@@ -1,5 +1,6 @@
 ﻿using DigitalWorldOnline.Commons.Writers;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 
 namespace DigitalWorldOnline.Commons.Packets.GameServer
 {
@@ -8,9 +9,8 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
         private const int PacketNumber = 3226;
 
         /// <summary>
-        /// Load the Cash Shop
+        /// Load Digimon Academy List
         /// </summary>
-        /// <param name="remainingSeconds">The membership remaining seconds (UTC).</param>
         public ArchiveAcademyIniciarPacket()
         {
             Type(PacketNumber);

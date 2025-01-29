@@ -59,12 +59,12 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var totalPrice = requestAmount * craftRecipe.Price;
 
-            if (!client.Tamer.Inventory.RemoveBits(totalPrice))
+            /*if (!client.Tamer.Inventory.RemoveBits(totalPrice))
             {
                 client.Send(new SystemMessagePacket($"Insuficient bits for item craft NPC id {npcId} and id {sequencialId}."));
                 _logger.Warning($"Insuficient bits for item craft NPC id {npcId} and id {sequencialId} for tamer {client.TamerId}.");
                 return;
-            }
+            }*/
 
             var craftedItem = new ItemModel(craftRecipe.ItemId, craftRecipe.Amount);
             craftedItem.SetItemInfo(_assets.ItemInfo.FirstOrDefault(x => x.ItemId == craftRecipe.ItemId));

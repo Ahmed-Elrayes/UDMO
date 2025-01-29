@@ -29,7 +29,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                     }
                 });
 
-                var isRewardNotAllowed = encyclopediaRecord.IsRewardReceived && !encyclopediaRecord.IsRewardAllowed;
+                var isRewardNotAllowed = encyclopediaRecord is { IsRewardReceived: true, IsRewardAllowed: false };
                 WriteInt(encyclopediaRecord.EvolutionAsset.Type);
                 WriteShort(encyclopediaRecord.Level);
                 WriteInt64(nSlotOpened);

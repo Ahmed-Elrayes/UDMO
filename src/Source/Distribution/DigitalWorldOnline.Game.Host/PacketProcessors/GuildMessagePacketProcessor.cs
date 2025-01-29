@@ -21,11 +21,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly ILogger _logger;
         private readonly ISender _sender;
 
-        public GuildMessagePacketProcessor(
-            MapServer mapServer,
-            ILogger logger,
-            ISender sender,
-            DungeonsServer dungeonServer)
+        public GuildMessagePacketProcessor(MapServer mapServer, ILogger logger, ISender sender, DungeonsServer dungeonServer)
         {
             _mapServer = mapServer;
             _logger = logger;
@@ -41,7 +37,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             if (client.Tamer.Guild != null)
             {
-
                 foreach (var memberId in client.Tamer.Guild.GetGuildMembersIdList())
                 {
                     var targetMessage = _mapServer.FindClientByTamerId(memberId);
@@ -61,7 +56,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             else
             {
                 client.Send(new SystemMessagePacket($"You need to be in a guild to send guild messages."));
-                _logger.Warning($"Character {client.TamerId} sent guild message but was not in a guild.");
+                //_logger.Warning($"Character {client.TamerId} sent guild message but was not in a guild.");
             }
         }
     }

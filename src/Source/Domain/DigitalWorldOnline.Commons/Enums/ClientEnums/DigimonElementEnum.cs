@@ -13,6 +13,19 @@
         Dark = 23,
         Thunder = 24,
         Steel = 25,
-        All = 26,
+    }
+    public enum DigimonElementPacketEnum
+    {
+        Neutral = -1,
+        Ice = 0,
+        Water = 1,
+        Fire = 2,
+        Land = 3,
+        Wind = 4,
+        Wood = 5,
+        Light = 6,
+        Dark = 7,
+        Thunder = 8,
+        Steel = 9,
     }
 }

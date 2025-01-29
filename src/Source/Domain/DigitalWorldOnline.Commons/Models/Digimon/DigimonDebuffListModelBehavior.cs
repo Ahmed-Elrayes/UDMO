@@ -80,6 +80,7 @@ namespace DigitalWorldOnline.Commons.Models.Digimon
                 buff.BuffInfo.SkillInfo.Apply.Any(apply =>
                     apply.Attribute == Enums.SkillCodeApplyAttributeEnum.AttackPowerDown));
         }
+
         /// <summary>
         /// Serializes buffs list.
         /// </summary>

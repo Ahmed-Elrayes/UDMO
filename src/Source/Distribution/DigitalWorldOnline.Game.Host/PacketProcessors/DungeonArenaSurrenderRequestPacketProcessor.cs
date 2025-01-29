@@ -50,7 +50,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             if (mapConfig == null || waypoints == null || !waypoints.Regions.Any())
             {
-                client.Send(new SystemMessagePacket($"Map information not found for map Id {3}."));
+                client.Send(new SystemMessagePacket($"Map information not found for map Id {mapConfig?.MapId}."));
                 _logger.Warning($"Map information not found for map Id {3} on character {client.TamerId} jump booster.");
                 return;
             }

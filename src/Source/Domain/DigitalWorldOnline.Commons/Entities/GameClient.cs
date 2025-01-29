@@ -4,7 +4,6 @@ using DigitalWorldOnline.Commons.Models.Character;
 using DigitalWorldOnline.Commons.Models.Digimon;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Commons.Writers;
-using System.Linq;
 using System.Net.Sockets;
 
 namespace DigitalWorldOnline.Commons.Entities
@@ -64,17 +63,23 @@ namespace DigitalWorldOnline.Commons.Entities
 
         public DigimonModel Partner => Tamer.Partner;
 
-        public long TamerId => Tamer != null ? Tamer.Id : 0;
+        public long TamerId => Tamer?.Id ?? 0;
 
-        public string TamerLocation => $"Map {Tamer?.Location.MapId} X{Tamer?.Location.X} Y{Tamer?.Location.Y}";
+        public string TamerLocation => $"Map {Tamer?.Location.MapId} X{Tamer?.Location.X} Y{Tamer?.Location.Y}, Channel {Tamer?.Channel}";
 
         public bool ReceiveWelcome { get; private set; }
 
         public bool GameQuit { get; private set; }
 
-        //public bool PvpMap => true;
+        // -------------------------------------------------------------------------------------------------------
 
         public bool DungeonMap => UtilitiesFunctions.DungeonMapIds.Contains(Tamer?.Location.MapId ?? 0);
+
+        public bool EventMap => UtilitiesFunctions.EventMapIds.Contains(Tamer?.Location.MapId ?? 0);
+
+        public bool PvpMap => UtilitiesFunctions.PvpMapIds.Contains(Tamer?.Location.MapId ?? 0);
+
+        // -------------------------------------------------------------------------------------------------------
 
         public bool SentOnceDataSent { get; private set; }
 
@@ -90,9 +95,9 @@ namespace DigitalWorldOnline.Commons.Entities
             SentOnceDataSent = false;
         }
 
-        public int MembershipUtcSeconds => MembershipExpirationDate.GetUtcSeconds();    //  Membership by Seconds
-        public int MembershipHours => MembershipExpirationDate.GetHours();    //  Membership by Hours
-
+        public int MembershipUtcSeconds => MembershipExpirationDate.GetUtcSeconds();            //  Membership 
+        public int MembershipUtcSecondsBuff => MembershipExpirationDate.GetUtcSecondsBuff();    //  Membership for buffs
+        
         public int PartnerDeleteValidation(string validation)
         {
             if (!string.IsNullOrEmpty(AccountSecondaryPassword))
@@ -160,6 +165,8 @@ namespace DigitalWorldOnline.Commons.Entities
             ReceiveWelcome = account.ReceiveWelcome;
         }
 
+        // ----------------------------------------------------------------------------------
+
         public void IncreaseMembershipDuration(int seconds)
         {
             if (MembershipExpirationDate == null)
@@ -176,6 +183,13 @@ namespace DigitalWorldOnline.Commons.Entities
                     MembershipExpirationDate = MembershipExpirationDate.Value.AddSeconds(seconds);
             }
         }
+
+        public void RemoveMembership()
+        {
+            MembershipExpirationDate = DateTime.UtcNow;
+        }
+
+        // ----------------------------------------------------------------------------------
 
         public void SetCharacter(CharacterModel character)
         {

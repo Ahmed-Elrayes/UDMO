@@ -128,6 +128,11 @@
         InitialArchive = 7,
 
         /// <summary>
+        /// Initial digimon archive size.
+        /// </summary>
+        InitialAcademy = 3,
+
+        /// <summary>
         /// Cash shop buy history size.
         /// </summary>
         CashShopBuyHistory = 255, //1000

@@ -3,6 +3,7 @@ using DigitalWorldOnline.Commons.Models.Character;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Commons.Writers;
 using System.Collections.Generic;
+using DigitalWorldOnline.Commons.Models.Digimon;
 using static System.Reflection.Metadata.BlobBuilder;
 
 namespace DigitalWorldOnline.Commons.Packets.GameServer
@@ -11,12 +12,12 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
     {
         private const int PacketNumber = 3236;
 
-        public EncyclopediaDeckBuffUsePacket(CharacterModel character)
+        public EncyclopediaDeckBuffUsePacket(int deckBuffHpCalculation, int deckBuffAsCalculation)
         {
             Type(PacketNumber);
 
-            WriteInt(character.Partner.HP);
-            WriteShort((short)character.Partner.AS);
+            WriteInt(deckBuffHpCalculation);
+            WriteShort((short)deckBuffAsCalculation);
         }
     }
 }

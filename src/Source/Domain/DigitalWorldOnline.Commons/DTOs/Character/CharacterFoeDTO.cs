@@ -10,5 +10,6 @@
         //References
         public long CharacterId { get; private set; }
         public CharacterDTO Character { get; private set; }
+        public CharacterDTO Foe { get; private set; }
     }
 }

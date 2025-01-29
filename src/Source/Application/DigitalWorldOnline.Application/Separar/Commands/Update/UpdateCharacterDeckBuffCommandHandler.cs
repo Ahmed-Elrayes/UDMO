@@ -14,7 +14,7 @@ namespace DigitalWorldOnline.Application.Separar.Commands.Update
 
         public async Task<Unit> Handle(UpdateCharacterDeckBuffCommand request, CancellationToken cancellationToken)
         {
-            await _repository.UpdateCharacterDeckbuffAsync(request.Character);
+            await _repository.UpdateCharacterDeckBuffAsync(request.Character);
 
             return Unit.Value;
         }

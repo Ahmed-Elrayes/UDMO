@@ -4,15 +4,14 @@ using DigitalWorldOnline.Application.Separar.Commands.Delete;
 using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
+using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Extensions;
 using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Models.TamerShop;
 using DigitalWorldOnline.Commons.Packets.PersonalShop;
 using DigitalWorldOnline.GameHost;
-
-
-
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -24,6 +23,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         private readonly AssetsLoader _assets;
         private readonly MapServer _mapServer;
+        private readonly EventServer _eventServer;
+        private readonly DungeonsServer _dungeonsServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly IMapper _mapper;
         private readonly ISender _sender;
@@ -31,12 +33,18 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public ConsignedShopRetrievePacketProcessor(
             AssetsLoader assets,
             MapServer mapServer,
+            EventServer eventServer,
+            DungeonsServer dungeonsServer,
+            PvpServer pvpServer,
             ILogger logger,
             IMapper mapper,
             ISender sender)
         {
             _assets = assets;
             _mapServer = mapServer;
+            _eventServer = eventServer;
+            _dungeonsServer = dungeonsServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _mapper = mapper;
             _sender = sender;
@@ -65,7 +73,29 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 client.Tamer.ConsignedWarehouse.AddItems(items.Clone());
 
                 _logger.Debug($"Broadcasting unload consigned shop packet...");
-                _mapServer.BroadcastForTamerViewsAndSelf(client.TamerId, new UnloadConsignedShopPacket(shop).Serialize());
+                var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(client.Tamer.Location.MapId));
+                switch (mapConfig?.Type)
+                {
+                    case MapTypeEnum.Dungeon:
+                        _dungeonsServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(shop).Serialize());
+                        break;
+
+                    case MapTypeEnum.Event:
+                        _eventServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(shop).Serialize());
+                        break;
+
+                    case MapTypeEnum.Pvp:
+                        _pvpServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(shop).Serialize());
+                        break;
+
+                    default:
+                        _mapServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(shop).Serialize());
+                        break;
+                }
 
                 await _sender.Send(new UpdateItemsCommand(client.Tamer.ConsignedShopItems));
                 await _sender.Send(new UpdateItemsCommand(client.Tamer.ConsignedWarehouse));

@@ -11,5 +11,6 @@ namespace DigitalWorldOnline.Application.Separar.Queries
         {
             MapConfigId = mapConfigId;
         }
+
     }
 }

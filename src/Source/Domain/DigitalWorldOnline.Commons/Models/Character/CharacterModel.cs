@@ -1,12 +1,11 @@
-﻿using DigitalWorldOnline.Commons.DTOs.Character;
-using DigitalWorldOnline.Commons.DTOs.Events;
-using DigitalWorldOnline.Commons.Enums;
+﻿using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.Character;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Model.Character;
 using DigitalWorldOnline.Commons.Models.Asset;
 using DigitalWorldOnline.Commons.Models.Base;
 using DigitalWorldOnline.Commons.Models.Config;
+using DigitalWorldOnline.Commons.Models.Config.Events;
 using DigitalWorldOnline.Commons.Models.Digimon;
 using DigitalWorldOnline.Commons.Models.Events;
 using DigitalWorldOnline.Commons.Models.Mechanics;
@@ -134,6 +133,11 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public List<CharacterFriendModel> Friends { get; private set; }
 
         /// <summary>
+        /// Character friends.
+        /// </summary>
+        public List<CharacterFriendModel> Friended { get; private set; }
+
+        /// <summary>
         /// Character Arena Points.
         /// </summary>
         public CharacterArenaPointsModel Points { get; private set; }
@@ -143,6 +147,12 @@ namespace DigitalWorldOnline.Commons.Models.Character
         /// Character blocked tamers.
         /// </summary>
         public List<CharacterFoeModel> Foes { get; private set; }
+
+
+        /// <summary>
+        /// Character blocked tamers.
+        /// </summary>
+        public List<CharacterFoeModel> Foed { get; private set; }
 
         /// <summary>
         /// Current buff list.
@@ -172,7 +182,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
         /// <summary>
         /// Character leveling status details.
         /// </summary>
-        public CharacterLevelStatusAssetModel LevelingStatus { get; private set; }
+        public CharacterLevelStatusAssetModel? LevelingStatus { get; private set; }
 
         /// <summary>
         /// Character seal list.
@@ -214,6 +224,11 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public CharacterDigimonArchiveModel DigimonArchive { get; private set; }
 
         /// <summary>
+        /// Character's digimon academy.
+        /// </summary>
+        public CharacterDigimonAcademyModel DigimonAcademy { get; private set; }
+
+        /// <summary>
         /// Belonging guild.
         /// </summary>
         public GuildModel? Guild { get; private set; }
@@ -253,6 +268,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public string ShopName { get; private set; }
         public List<MobConfigModel> TargetMobs { get; private set; }
         public List<SummonMobModel> TargetSummonMobs { get; private set; }
+        public List<EventMobConfigModel> TargetEventMobs { get; private set; }
         public List<DigimonModel> TargetPartners { get; private set; }
         public int TargetHandler { get; private set; }
         public Location ViewLocation { get; private set; }
@@ -265,6 +281,8 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public List<ItemModel> RepurchaseList { get; private set; }
         public bool TempShowFullMap { get; set; }
         public List<CharacterEncyclopediaModel> Encyclopedia { get; private set; }
+        
+        public DeckBuffModel? DeckBuff { get; private set; }
 
         public CharacterModel()
         {
@@ -274,9 +292,11 @@ namespace DigitalWorldOnline.Commons.Models.Character
             BuffList = new CharacterBuffListModel();
             SealList = new CharacterSealListModel();
             Foes = new List<CharacterFoeModel>();
+            Foed = new List<CharacterFoeModel>();
             Digimons = new List<DigimonModel>();
             TimeReward = new TimeRewardModel();
             Friends = new List<CharacterFriendModel>();
+            Friended = new List<CharacterFriendModel>();
             Points = new CharacterArenaPointsModel();
             MapRegions = new List<CharacterMapRegionModel>();
             ViewLocation = new Location();
@@ -287,6 +307,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
             TargetPartners = new List<DigimonModel>();
             TargetMobs = new List<MobConfigModel>();
             TargetSummonMobs = new List<SummonMobModel>();
+            TargetEventMobs = new List<EventMobConfigModel>();
             MobsInView = new List<long>();
             RepurchaseList = new List<ItemModel>();
             AttendanceReward = new AttendanceRewardModel();
@@ -322,7 +343,6 @@ namespace DigitalWorldOnline.Commons.Models.Character
             };
 
             Encyclopedia = new List<CharacterEncyclopediaModel>();
-
             StartTimers();
         }
 
@@ -339,10 +359,10 @@ namespace DigitalWorldOnline.Commons.Models.Character
             if (updateSlots)
             {
                 var count = Digimons.Count;
+
                 Digimons.OrderByDescending(x => x.Slot).ToList().ForEach(digimon =>
                 {
                     count--;
-                    //digimon.SetSlot((byte)count);
                 });
             }
         }
@@ -350,6 +370,7 @@ namespace DigitalWorldOnline.Commons.Models.Character
         public void UpdateSlots()
         {
             var count = Digimons.Count;
+
             Digimons.OrderByDescending(x => x.Slot).ToList().ForEach(digimon =>
             {
                 count--;

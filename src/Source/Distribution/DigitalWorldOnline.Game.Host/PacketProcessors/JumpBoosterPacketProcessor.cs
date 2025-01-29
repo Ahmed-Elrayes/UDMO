@@ -7,6 +7,7 @@ using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.MapServer;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Serilog;
@@ -18,6 +19,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public GameServerPacketEnum Type => GameServerPacketEnum.JumpBooster;
 
         private readonly MapServer _mapServer;
+        private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly IConfiguration _configuration;
         private readonly ISender _sender;
         private readonly ILogger _logger;
@@ -26,14 +30,14 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private const string GamerServerPublic = "GameServer:PublicAddress";
         private const string GameServerPort = "GameServer:Port";
 
-        public JumpBoosterPacketProcessor(
-            MapServer mapServer,
-            IConfiguration configuration,
-            ISender sender,
-            ILogger logger)
+        public JumpBoosterPacketProcessor(MapServer mapServer, DungeonsServer dungeonsServer, EventServer eventServer, PvpServer pvpServer,
+            IConfiguration configuration, ISender sender, ILogger logger)
         {
-            _configuration = configuration;
             _mapServer = mapServer;
+            _dungeonServer = dungeonsServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
+            _configuration = configuration;
             _sender = sender;
             _logger = logger;
         }
@@ -46,13 +50,14 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var slot = packet.ReadShort();
             var mapId = packet.ReadShort();
 
-            if(mapId == 1 )
+            if (mapId == 1)
             {
                 mapId = 3;
             }
 
             var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(mapId));
             var waypoints = await _sender.Send(new MapRegionListAssetsByMapIdQuery(mapId));
+
             if (mapConfig == null || waypoints == null || !waypoints.Regions.Any())
             {
                 client.Send(new SystemMessagePacket($"Map information not found for map Id {mapId}."));
@@ -63,6 +68,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             if (!vipEnabled)
             {
                 var bombItem = client.Tamer.Inventory.FindItemBySlot(slot);
+
                 if (!client.Tamer.Inventory.RemoveOrReduceItem(bombItem, 1, slot))
                 {
                     client.Send(new SystemMessagePacket($"Unable to jump to {mapId}."));
@@ -76,9 +82,19 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             }
             else
                 _logger.Verbose($"Character {client.TamerId} jumped to map {mapId} with VIP");
-            
 
-            _mapServer.RemoveClient(client);
+            if (client.PvpMap)
+            {
+                _pvpServer.RemoveClient(client);
+            }
+            else if (client.EventMap)
+            {
+                _eventServer.RemoveClient(client);
+            }
+            else
+            {
+                _mapServer.RemoveClient(client);
+            }
 
             var destination = waypoints.Regions.First();
 
@@ -93,13 +109,8 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             client.SetGameQuit(false);
 
-            client.Send(new MapSwapPacket(
-                _configuration[GamerServerPublic],
-                _configuration[GameServerPort],
-                client.Tamer.Location.MapId,
-                client.Tamer.Location.X,
-                client.Tamer.Location.Y)
-                .Serialize());
+            client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
+                client.Tamer.Location.MapId, client.Tamer.Location.X, client.Tamer.Location.Y).Serialize());
         }
     }
 }

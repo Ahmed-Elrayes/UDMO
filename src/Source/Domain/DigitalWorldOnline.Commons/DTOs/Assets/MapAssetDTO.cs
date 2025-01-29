@@ -1,4 +1,6 @@
-﻿namespace DigitalWorldOnline.Commons.DTOs.Assets
+﻿using DigitalWorldOnline.Commons.Enums;
+
+namespace DigitalWorldOnline.Commons.DTOs.Assets
 {
     public sealed class MapAssetDTO
     {
@@ -16,6 +18,11 @@
         /// Map name.
         /// </summary>
         public string Name { get; set; }
+
+        /// <summary>
+        /// Map name.
+        /// </summary>
+        public MapTypeEnum Type { get; set; }
 
         /// <summary>
         /// Map region index.

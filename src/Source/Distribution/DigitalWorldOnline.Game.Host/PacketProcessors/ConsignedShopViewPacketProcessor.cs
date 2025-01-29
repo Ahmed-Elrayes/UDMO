@@ -4,17 +4,15 @@ using DigitalWorldOnline.Application.Separar.Commands.Delete;
 using DigitalWorldOnline.Application.Separar.Commands.Update;
 using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
+using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Models.Character;
 using DigitalWorldOnline.Commons.Models.TamerShop;
 using DigitalWorldOnline.Commons.Packets.PersonalShop;
 using DigitalWorldOnline.GameHost;
-
-
-
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
-using Serilog;
 
 namespace DigitalWorldOnline.Game.PacketProcessors
 {
@@ -24,62 +22,113 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         private readonly AssetsLoader _assets;
         private readonly MapServer _mapServer;
-        private readonly ILogger _logger;
+        private readonly EventServer _eventServer;
+        private readonly DungeonsServer _dungeonsServer;
+        private readonly PvpServer _pvpServer;
         private readonly ISender _sender;
         private readonly IMapper _mapper;
 
         public ConsignedShopViewPacketProcessor(
             MapServer mapServer,
+            EventServer eventServer,
+            DungeonsServer dungeonsServer,
+            PvpServer pvpServer,
             AssetsLoader assets,
-            ILogger logger,
             IMapper mapper,
             ISender sender)
         {
             _mapServer = mapServer;
+            _eventServer = eventServer;
+            _dungeonsServer = dungeonsServer;
+            _pvpServer = pvpServer;
             _assets = assets;
             _mapper = mapper;
-            _logger = logger;
             _sender = sender;
         }
 
         public async Task Process(GameClient client, byte[] packetData)
         {
-
             var packet = new GamePacketReader(packetData);
 
-            _logger.Debug($"Getting parameters...");
+            Console.WriteLine($"Pacote de Visualização da Loja Consignada");
+
             packet.Skip(4);
             var handler = packet.ReadInt();
 
-            _logger.Debug($"{handler}");
-
-            _logger.Debug($"Searching consigned shop with handler {handler}...");
-            var consignedShop = _mapper.Map<ConsignedShop>(await _sender.Send(new ConsignedShopByHandlerQuery(handler)));
-
+            Console.WriteLine($"Buscando loja consignada com o identificador {handler}...");
+            var consignedShop =
+                _mapper.Map<ConsignedShop>(await _sender.Send(new ConsignedShopByHandlerQuery(handler)));
+            var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(client.Tamer.Location.MapId));
             if (consignedShop == null)
             {
-                _logger.Warning($"Consigned shop not found with handler {handler}.");
-                _logger.Debug($"Sending consigned shop items view packet...");
+                Console.WriteLine($"Loja consignada não encontrada com o identificador {handler}.");
                 client.Send(new ConsignedShopItemsViewPacket());
 
-                _logger.Debug($"Sending unload consigned shop packet...");
-                _mapServer.BroadcastForTamerViewsAndSelf(client.TamerId, new UnloadConsignedShopPacket(handler).Serialize());
+                Console.WriteLine($"Enviando pacote de descarregamento da loja consignada...");
+
+                switch (mapConfig?.Type)
+                {
+                    case MapTypeEnum.Dungeon:
+                        _dungeonsServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+
+                    case MapTypeEnum.Event:
+                        _eventServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+
+                    case MapTypeEnum.Pvp:
+                        _pvpServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+
+                    default:
+                        _mapServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+                }
+
                 return;
             }
 
-            _logger.Debug($"Searching consigned shop owner with id {consignedShop.CharacterId}...");
-            var shopOwner = _mapper.Map<CharacterModel>(await _sender.Send(new CharacterAndItemsByIdQuery(consignedShop.CharacterId)));
+            Console.WriteLine($"Buscando proprietário da loja consignada com id {consignedShop.CharacterId}...");
+            var shopOwner =
+                _mapper.Map<CharacterModel>(
+                    await _sender.Send(new CharacterAndItemsByIdQuery(consignedShop.CharacterId)));
 
             if (shopOwner == null || shopOwner.ConsignedShopItems.Count == 0)
             {
-                _logger.Debug($"Deleting consigned shop...");
+                Console.WriteLine($"Excluindo loja consignada...");
                 await _sender.Send(new DeleteConsignedShopCommand(handler));
 
-                _logger.Debug($"Sending consigned shop items view packet...");
+                Console.WriteLine($"Enviando pacote de visualização dos itens da loja consignada...");
                 client.Send(new ConsignedShopItemsViewPacket());
 
-                _logger.Debug($"Sending unload consigned shop packet...");
-                _mapServer.BroadcastForTamerViewsAndSelf(client.TamerId, new UnloadConsignedShopPacket(handler).Serialize());
+                Console.WriteLine($"Enviando pacote de descarregamento da loja consignada...");
+                switch (mapConfig?.Type)
+                {
+                    case MapTypeEnum.Dungeon:
+                        _dungeonsServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+
+                    case MapTypeEnum.Event:
+                        _eventServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+
+                    case MapTypeEnum.Pvp:
+                        _pvpServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+
+                    default:
+                        _mapServer.BroadcastForTamerViewsAndSelf(client.TamerId,
+                            new UnloadConsignedShopPacket(handler).Serialize());
+                        break;
+                }
+
                 return;
             }
 
@@ -92,12 +141,12 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 {
                     item.SetItemId();
                     shopOwner.ConsignedShopItems.CheckEmptyItems();
-                    _logger.Debug($"Updating consigned shop item list...");
+                    Console.WriteLine($"Atualizando a lista de itens da loja consignada...");
                     await _sender.Send(new UpdateItemsCommand(shopOwner.ConsignedShopItems));
                 }
             }
 
-            _logger.Debug($"Sending consigned shop item list view packet...");
+            Console.WriteLine($"Enviando pacote de visualização da lista de itens da loja consignada...");
             client.Send(new ConsignedShopItemsViewPacket(consignedShop, shopOwner.ConsignedShopItems, shopOwner.Name));
         }
     }

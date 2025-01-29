@@ -25,7 +25,7 @@
         /// <summary>
         /// Tamer shop selling price in bits.
         /// </summary>
-        public int TamerShopSellPrice { get; set; }
+        public long TamerShopSellPrice { get; set; }
 
         /// <summary>
         /// Attribute multiplier.

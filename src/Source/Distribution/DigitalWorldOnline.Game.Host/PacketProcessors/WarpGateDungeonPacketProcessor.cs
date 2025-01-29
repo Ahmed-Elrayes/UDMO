@@ -59,7 +59,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var portalId = packet.ReadInt();
 
-            _logger.Information($"Dungeon PortalId: {portalId}");
+            // _logger.Information($"Dungeon PortalId: {portalId}");
 
             var portal = _assets.Portal.FirstOrDefault(x => x.Id == portalId);
 
@@ -68,16 +68,17 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             if (portal == null)
             {
                 client.Send(new SystemMessagePacket($"Portal {portalId} not found."));
-                _logger.Error($"Portal id {portalId} not found.");
+                // _logger.Error($"Portal id {portalId} not found.");
 
                 var mapId = client.Tamer.Location.MapId;
 
                 var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(mapId));
                 var waypoints = await _sender.Send(new MapRegionListAssetsByMapIdQuery(mapId));
+
                 if (mapConfig == null || waypoints == null || !waypoints.Regions.Any())
                 {
                     client.Send(new SystemMessagePacket($"Map information not found for {mapId}"));
-                    _logger.Error($"Map information not found for {mapId}");
+                    // _logger.Error($"Map information not found for {mapId}");
                     return;
                 }
 
@@ -154,7 +155,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     if (!portal.IsLocal && tamerMap.IsRoyalBase)
                     {
                         int MapId = tamerMap.MapId;
-                        _logger.Information($"Going MapID: {portal.DestinationMapId} and is allowed to enter floor 3 {(tamerMap?.RoyalBaseMap?.AllowUsingPortalFromFloorTwoToFloorThree == false || tamerMap?.RoyalBaseMap?.AllowUsingPortalFromFloorTwoToFloorThree == null).ToString()}");
+                        // _logger.Information($"Going MapID: {portal.DestinationMapId} and is allowed to enter floor 3 {(tamerMap?.RoyalBaseMap?.AllowUsingPortalFromFloorTwoToFloorThree == false || tamerMap?.RoyalBaseMap?.AllowUsingPortalFromFloorTwoToFloorThree == null).ToString()}");
                         if ((tamerMap?.RoyalBaseMap?.AllowUsingPortalFromFloorOneToFloorTwo == false || tamerMap?.RoyalBaseMap?.AllowUsingPortalFromFloorOneToFloorTwo == null) && portal.DestinationMapId == 1702)
                         {
                             int LocationX = 32000;
@@ -216,7 +217,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 _dungeonServer.RemoveClient(client);
                 _mapServer.RemoveClient(client);
 
-
                 client.SetGameQuit(false);
 
                 client.Send(new MapSwapPacket(_configuration[GamerServerPublic], _configuration[GameServerPort],
@@ -245,7 +245,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             ));
                         }*/
 
-                        if (target.Id != client.Tamer.Id) targetClient.Send(new PartyMemberWarpGatePacket(party[client.TamerId]).Serialize());
+                        if (target.Id != client.Tamer.Id) targetClient.Send(new PartyMemberWarpGatePacket(party[client.TamerId], targetClient.Tamer).Serialize());
                     }
 
                     client.Send(new PartyMemberListPacket(party, client.TamerId, (byte)(party.Members.Count - 1)).Serialize());

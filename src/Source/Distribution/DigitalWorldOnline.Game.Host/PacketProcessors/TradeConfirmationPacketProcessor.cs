@@ -1,4 +1,5 @@
 ﻿using DigitalWorldOnline.Application.Separar.Commands.Update;
+using DigitalWorldOnline.Application.Separar.Queries;
 using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.Character;
@@ -10,6 +11,7 @@ using DigitalWorldOnline.Commons.Models.Base;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.Items;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -20,23 +22,46 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         public GameServerPacketEnum Type => GameServerPacketEnum.TradeConfirmation;
 
         private readonly MapServer _mapServer;
+        private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
 
-        public TradeConfirmationPacketProcessor(
-            MapServer mapServer,
-            ILogger logger,
-            ISender sender)
+        public TradeConfirmationPacketProcessor(MapServer mapServer, DungeonsServer dungeonsServer, EventServer eventServer, PvpServer pvpServer, ILogger logger, ISender sender)
         {
             _mapServer = mapServer;
+            _dungeonServer = dungeonsServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
-
         }
 
         public async Task Process(GameClient client, byte[] packetData)
         {
-            var targetClient = _mapServer.FindClientByTamerHandleAndChannel(client.Tamer.TargetTradeGeneralHandle, client.TamerId);
+            GameClient? targetClient;
+
+            var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(client.Tamer.Location.MapId));
+
+            switch (mapConfig!.Type)
+            {
+                case MapTypeEnum.Dungeon:
+                    targetClient = _dungeonServer.FindClientByTamerHandleAndChannel(client.Tamer.TargetTradeGeneralHandle, client.TamerId);
+                    break;
+
+                case MapTypeEnum.Event:
+                    targetClient = _eventServer.FindClientByTamerHandleAndChannel(client.Tamer.TargetTradeGeneralHandle, client.TamerId);
+                    break;
+
+                case MapTypeEnum.Pvp:
+                    targetClient = _pvpServer.FindClientByTamerHandleAndChannel(client.Tamer.TargetTradeGeneralHandle, client.TamerId);
+                    break;
+
+                default:
+                    targetClient = _mapServer.FindClientByTamerHandleAndChannel(client.Tamer.TargetTradeGeneralHandle, client.TamerId);
+                    break;
+            }
 
             client.Send(new TradeConfirmationPacket(client.Tamer.GeneralHandler));
             targetClient.Send(new TradeConfirmationPacket(client.Tamer.GeneralHandler));
@@ -48,7 +73,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 {
                     InvalidTrade(client, targetClient);
                     return;
-
                 }
                 else if (targetClient.Tamer.Inventory.TotalEmptySlots < client.Tamer.TradeInventory.Count)
                 {
@@ -114,8 +138,6 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             targetClient.Tamer.ClearTrade();
             client.Tamer.ClearTrade();
-
-
         }
     }
 

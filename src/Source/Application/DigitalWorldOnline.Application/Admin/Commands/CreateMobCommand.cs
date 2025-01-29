@@ -1,13 +1,14 @@
 ﻿using DigitalWorldOnline.Commons.DTOs.Config;
+using DigitalWorldOnline.Commons.DTOs.Config.Events;
 using MediatR;
 
 namespace DigitalWorldOnline.Application.Admin.Commands
 {
-    public class CreateMobCommand : IRequest<MobConfigDTO>
+    public class CreateEventMobCommand : IRequest<EventMobConfigDTO>
     {
-        public MobConfigDTO Mob { get; }
+        public EventMobConfigDTO Mob { get; }
 
-        public CreateMobCommand(MobConfigDTO mob)
+        public CreateEventMobCommand(EventMobConfigDTO mob)
         {
             Mob = mob;
         }

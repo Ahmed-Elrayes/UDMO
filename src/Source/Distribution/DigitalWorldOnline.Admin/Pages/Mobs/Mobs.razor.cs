@@ -76,7 +76,7 @@ namespace DigitalWorldOnline.Admin.Pages.Mobs
         }
 
         private async Task<TableData<MobViewModel>> ServerReload(TableState state)
-        {
+        {   
             var mobs = await Sender.Send(
                 new GetMobsQuery(
                     _id,

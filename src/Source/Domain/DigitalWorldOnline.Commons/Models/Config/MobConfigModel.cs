@@ -1,6 +1,7 @@
 ﻿using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.Map;
 using DigitalWorldOnline.Commons.Models.Character;
+using DigitalWorldOnline.Commons.Models.Summon;
 
 namespace DigitalWorldOnline.Commons.Models.Config
 {

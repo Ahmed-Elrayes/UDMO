@@ -1,4 +1,5 @@
 ﻿using DigitalWorldOnline.Commons.Models.Config;
+using DigitalWorldOnline.Commons.Models.Config.Events;
 using DigitalWorldOnline.Commons.Models.Summon;
 using DigitalWorldOnline.Commons.Writers;
 
@@ -23,6 +24,16 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer.Combat
             WriteInt(0);
         }
         public MobWalkPacket(SummonMobModel mob)
+        {
+            Type(PacketNumber);
+            WriteByte(5);
+            WriteShort(1);
+            WriteUInt((uint)mob.GeneralHandler);
+            WriteInt(mob.CurrentLocation.X);
+            WriteInt(mob.CurrentLocation.Y);
+            WriteInt(0);
+        }
+        public MobWalkPacket(EventMobConfigModel mob)
         {
             Type(PacketNumber);
             WriteByte(5);

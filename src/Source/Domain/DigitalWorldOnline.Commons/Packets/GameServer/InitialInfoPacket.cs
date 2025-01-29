@@ -1,4 +1,5 @@
 ﻿using DigitalWorldOnline.Commons.Models.Character;
+using DigitalWorldOnline.Commons.Models.Map;
 using DigitalWorldOnline.Commons.Models.Mechanics;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Commons.Writers;
@@ -44,7 +45,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteInt(-1); // BackupDisk TradeLimitTime
 
             WriteShort((short)character.BuffList.ActiveBuffs.Count);
-            foreach (var buff in character.BuffList.ActiveBuffs)
+            foreach (var buff in character.BuffList.ActiveBuffs.ToList())
             {
                 WriteShort((short)buff.BuffId);
                 WriteShort((short)buff.TypeN);
@@ -130,8 +131,8 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteShort(character.Partner.AttributeExperience.Thunder);
             WriteShort(character.Partner.AttributeExperience.Steel);
 
-            WriteInt(0);//nUID (não é mais utilizado?)
-            WriteByte(0);//TODO: CashSkillCount (se passar acima de 0, informar o objeto)
+            WriteInt(0); //nUID (não é mais utilizado?)
+            WriteByte(0); //TODO: CashSkillCount (se passar acima de 0, informar o objeto)
 
             byte slot = 1;
             foreach (var digimon in character.ActiveDigimons)
@@ -143,7 +144,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                 WriteByte((byte)digimon.HatchGrade);
                 WriteShort(digimon.Size);
                 WriteInt64(digimon.CurrentExperience * 100);
-                WriteInt64(digimon.TranscendenceExperience);//Transcend EXP
+                WriteInt64(digimon.TranscendenceExperience); //Transcend EXP
                 WriteShort(digimon.Level);
                 WriteInt(digimon.HP);
                 WriteInt(digimon.DS);
@@ -228,8 +229,17 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                 foreach (var member in party.Members.Where(x => x.Value.Id != character.Id))
                 {
                     WriteByte(member.Key);
-                    WriteInt(member.Value.GeneralHandler);
-                    WriteInt(member.Value.Partner.GeneralHandler);
+                    if (character.Channel == member.Value.Channel &&
+                        character.Location.MapId == member.Value.Location.MapId)
+                    {
+                        WriteInt(member.Value.GeneralHandler);
+                        WriteInt(member.Value.Partner.GeneralHandler);
+                    }
+                    else
+                    {
+                        WriteInt(0);
+                        WriteInt(0);
+                    }
 
                     WriteInt(member.Value.Model.GetHashCode());
                     WriteShort(member.Value.Level);
@@ -286,7 +296,9 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteByte(0); //hatch atual já rodou minigame
             WriteShort(0); //total de sucesso do minigame (TODO: externalizar % por tentativa bem sucedida)
 
-            var Buffs = character.ActiveSkill.Where(x => x.Type == Enums.ClientEnums.TamerSkillTypeEnum.Normal && x.SkillId > 0 && x.RemainingCooldownSeconds > 0).ToList();
+            var Buffs = character.ActiveSkill.Where(x =>
+                x.Type == Enums.ClientEnums.TamerSkillTypeEnum.Normal && x.SkillId > 0 &&
+                x.RemainingCooldownSeconds > 0).ToList();
 
             if (Buffs.Any())
             {
@@ -304,21 +316,21 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                         WriteInt(0);
                     }
                 }
-
             }
             else
             {
                 WriteByte(0);
             }
 
-            var cashBuffs = character.ActiveSkill.Where(x => x.Type == Enums.ClientEnums.TamerSkillTypeEnum.Cash && x.SkillId > 0 && x.RemainingMinutes > 0).ToList();
+            var cashBuffs = character.ActiveSkill.Where(x =>
+                    x.Type == Enums.ClientEnums.TamerSkillTypeEnum.Cash && x.SkillId > 0 && x.RemainingMinutes > 0)
+                .ToList();
 
             if (cashBuffs.Any())
             {
                 WriteByte((byte)cashBuffs.Count);
                 foreach (var buff in cashBuffs)
                 {
-
                     if (buff.RemainingMinutes > 0)
                     {
                         WriteInt(buff.SkillId);
@@ -340,7 +352,6 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
                         WriteInt(0);
                     }
                 }
-
             }
             else
             {
@@ -361,6 +372,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             {
                 WriteInt((int)character.DeckBuffId);
             }
+
             WriteByte(0); //Megaphone ban (1 = block)
 
             WriteInt(0);

@@ -9,8 +9,7 @@ namespace DigitalWorldOnline.Application.Separar.Commands.Update
 
         public byte Channel { get; set; }
 
-        public UpdateCharacterChannelCommand(long characterId,
-            byte? channel = byte.MaxValue)
+        public UpdateCharacterChannelCommand(long characterId, byte? channel = byte.MaxValue)
         {
             CharacterId = characterId;
             Channel = channel ?? 255;

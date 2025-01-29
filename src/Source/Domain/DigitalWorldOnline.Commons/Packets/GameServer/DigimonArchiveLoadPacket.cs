@@ -1,5 +1,6 @@
 ﻿using DigitalWorldOnline.Commons.Models.Character;
 using DigitalWorldOnline.Commons.Writers;
+using System.Runtime.InteropServices;
 
 namespace DigitalWorldOnline.Commons.Packets.GameServer
 {
@@ -14,11 +15,13 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
         public DigimonArchiveLoadPacket(CharacterDigimonArchiveModel digimonArchive)
         {
             Type(PacketNumber);
-            WriteInt(0);
-            WriteInt(digimonArchive.Slots);
-            WriteInt(0);
-            WriteInt(0);
-            WriteInt(0);
+            WriteInt(0);                    // nType
+            WriteInt(digimonArchive.Slots); // nOpenSlotSize
+            
+            for (int i = 0; i < 3; i++)
+            {
+                WriteInt(0);
+            }
 
             foreach (var digimonArchiveItem in digimonArchive.DigimonArchives.Where(x => x.Digimon != null))
             {

@@ -16,6 +16,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteInt(channel);
             WriteInt(targetMobType);
             WriteInt(0);
+
         }
     }
 }

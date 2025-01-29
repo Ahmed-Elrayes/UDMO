@@ -475,12 +475,14 @@ namespace DigitalWorldOnline.Commons.Models.Summon
 
         public int GetStartTimeUnixTimeSeconds()
         {
-            return (int)(StartDate - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMinutes;
+            long unixTime = new DateTimeOffset(StartDate).ToUnixTimeSeconds();
+            return (int)unixTime;
         }
 
         public int GetEndTimeUnixTimeSeconds()
         {
-            return (int)(ExpirationDate - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMinutes;
+            long unixTime = new DateTimeOffset(ExpirationDate).ToUnixTimeSeconds();
+            return (int)unixTime;
         }
         public void StartBattle(CharacterModel tamer)
         {

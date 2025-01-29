@@ -50,6 +50,7 @@ namespace DigitalWorldOnline.Routine
             while (!cancellationToken.IsCancellationRequested)
             {
                 var routines = _mapper.Map<List<RoutineModel>>(await _sender.Send(new GetActiveRoutinesQuery(), cancellationToken));
+
                 foreach (var routine in routines.Where(x => x.ExecutionTime))
                 {
                     _logger.Information($"Executing {routine.Name}...");

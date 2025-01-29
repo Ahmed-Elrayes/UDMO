@@ -21,16 +21,8 @@ namespace DigitalWorldOnline.GameHost
 
         public List<GameMap> Maps { get; set; }
 
-        public DungeonsServer(
-           PartyManager partyManager,
-           AssetsLoader assets,
-           ConfigsLoader configs,
-           StatusManager statusManager,
-           ExpManager expManager,
-           DropManager dropManager,
-           ILogger logger,
-           ISender sender,
-           IMapper mapper)
+        public DungeonsServer(PartyManager partyManager, StatusManager statusManager, ExpManager expManager, DropManager dropManager,
+           AssetsLoader assets, ConfigsLoader configs, ILogger logger, ISender sender, IMapper mapper)
         {
             _partyManager = partyManager;
             _statusManager = statusManager;

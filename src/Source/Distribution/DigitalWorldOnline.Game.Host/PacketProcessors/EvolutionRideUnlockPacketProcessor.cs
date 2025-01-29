@@ -16,9 +16,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly ISender _sender;
         private readonly ILogger _logger;
 
-        public EvolutionRideUnlockPacketProcessor(
-            ISender sender,
-            ILogger logger)
+        public EvolutionRideUnlockPacketProcessor(ISender sender, ILogger logger)
         {
             _sender = sender;
             _logger = logger;
@@ -29,7 +27,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var packet = new GamePacketReader(packetData);
 
             var evoIdx = packet.ReadInt() -1;
-            var itemSection = packet.ReadInt(); //TODO: obter a quantidade e section do Ride.bin
+            var itemSection = packet.ReadInt();
 
             var inventoryItem = client.Tamer.Inventory.FindItemBySection(itemSection);
 

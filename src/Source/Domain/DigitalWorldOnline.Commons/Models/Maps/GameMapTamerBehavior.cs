@@ -10,15 +10,15 @@ namespace DigitalWorldOnline.Commons.Models.Map
 
         public List<CharacterModel> Tamers =>
             Clients
-            .Where(x => x.IsConnected)
-            .Select(x => x.Tamer)
-            .ToList();
+                .Where(x => x.IsConnected)
+                .Select(x => x.Tamer)
+                .ToList();
 
         public List<CharacterModel> LoadingTamers =>
             Clients
-            .Where(x => x.Tamer.State == CharacterStateEnum.Loading)
-            .Select(x => x.Tamer)
-            .ToList();
+                .Where(x => x.Tamer.State == CharacterStateEnum.Loading)
+                .Select(x => x.Tamer)
+                .ToList();
 
         public List<CharacterModel> NearbyTamers(long tamerKey)
         {
@@ -31,9 +31,9 @@ namespace DigitalWorldOnline.Commons.Models.Map
 
         public List<CharacterModel> ConnectedTamers =>
             Clients
-            .Where(x => x.IsConnected && x.Tamer.State == CharacterStateEnum.Ready)
-            .Select(x => x.Tamer)
-            .ToList();
+                .Where(x => x.IsConnected && x.Tamer.State == CharacterStateEnum.Ready)
+                .Select(x => x.Tamer)
+                .ToList();
 
         public void SetNoTamers()
         {
@@ -53,7 +53,7 @@ namespace DigitalWorldOnline.Commons.Models.Map
                 SetDigimonHandler(digimon);
             }
         }
-        
+
         public void SwapDigimonHandlers(DigimonModel oldPartner, DigimonModel newPartner)
         {
             lock (DigimonHandlersLock)
@@ -126,13 +126,15 @@ namespace DigitalWorldOnline.Commons.Models.Map
         {
             try
             {
-                if (!TamersView.ContainsKey(tamerId)) {
+                if (!TamersView.ContainsKey(tamerId))
+                {
                     TamersView.Add(tamerId, new List<long>());
                 }
             }
-            catch
+            catch (Exception exception)
             {
-                // Exceção ignorada, a execução continua
+                Console.WriteLine($"{exception.Message}");
+                throw;
             }
         }
 
@@ -140,7 +142,7 @@ namespace DigitalWorldOnline.Commons.Models.Map
         {
             if (TamersView.ContainsKey(tamerKey))
                 return TamersView[tamerKey].Contains(tamerTarget);
-            else 
+            else
                 return false;
         }
 
@@ -153,7 +155,7 @@ namespace DigitalWorldOnline.Commons.Models.Map
 
         public void HideTamer(long tamerKey, long tamerTarget)
         {
-            if(TamersView.ContainsKey(tamerKey))
+            if (TamersView.ContainsKey(tamerKey))
                 TamersView[tamerKey].Remove(tamerTarget);
         }
     }

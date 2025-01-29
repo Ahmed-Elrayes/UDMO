@@ -23,12 +23,9 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteInt(member.Value.Partner.GeneralHandler);
         }
 
-        public PartyMemberJoinPacket(KeyValuePair<byte, CharacterModel> member, bool lider)
+        public PartyMemberJoinPacket(KeyValuePair<byte, CharacterModel> member, CharacterModel character)
         {
             Type(PacketNumber);
-            int key = member.Key;
-            key += 1;
-
             WriteInt(member.Key);
             WriteInt(member.Value.Model.GetHashCode());
             WriteShort(member.Value.Level);
@@ -38,8 +35,17 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             WriteString(member.Value.Partner.Name);
             WriteInt(member.Value.Location.MapId);
             WriteInt(member.Value.Channel);
-            WriteInt(member.Value.GeneralHandler);
-            WriteInt(member.Value.Partner.GeneralHandler);
+            if (character.Channel == member.Value.Channel &&
+                character.Location.MapId == member.Value.Location.MapId)
+            {
+                WriteInt(member.Value.GeneralHandler);
+                WriteInt(member.Value.Partner.GeneralHandler);
+            }
+            else
+            {
+                WriteInt(0);
+                WriteInt(0);
+            }
         }
     }
 }

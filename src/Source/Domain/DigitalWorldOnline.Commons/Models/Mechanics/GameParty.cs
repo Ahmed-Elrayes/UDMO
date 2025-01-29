@@ -6,19 +6,19 @@ namespace DigitalWorldOnline.Commons.Models.Mechanics
 {
     public class GameParty
     {
-        private Dictionary<byte, CharacterModel> _members;
+        private Dictionary<byte,CharacterModel> _members;
         public int Id { get; private set; }
         public PartyLootShareTypeEnum LootType { get; private set; }
         public PartyLootShareRarityEnum LootFilter { get; private set; }
-        public int LeaderSlot { get; private set; }
+        public int LeaderSlot { get;  set; }
         public long LeaderId { get; private set; }
         public DateTime CreateDate { get; }
 
-        public Dictionary<byte, CharacterModel> Members
+        public Dictionary<byte,CharacterModel> Members
         {
             get
             {
-                return _members.OrderBy(x => x.Key).ToDictionary(x => x.Key, x => x.Value);
+                return _members.OrderBy(x => x.Key).ToDictionary(x => x.Key,x => x.Value);
             }
 
             private set
@@ -27,10 +27,10 @@ namespace DigitalWorldOnline.Commons.Models.Mechanics
             }
         }
 
-        public KeyValuePair<byte, CharacterModel> this[long memberId] => Members.First(x => x.Value.Id == memberId);
-        public KeyValuePair<byte, CharacterModel> this[string memberName] => Members.First(x => x.Value.Name == memberName);
+        public KeyValuePair<byte,CharacterModel> this[long memberId] => Members.First(x => x.Value.Id == memberId);
+        public KeyValuePair<byte,CharacterModel> this[string memberName] => Members.First(x => x.Value.Name == memberName);
 
-        private GameParty(int id, CharacterModel leader, CharacterModel member)
+        private GameParty(int id,CharacterModel leader,CharacterModel member)
         {
             Id = id;
             CreateDate = DateTime.Now;
@@ -46,7 +46,7 @@ namespace DigitalWorldOnline.Commons.Models.Mechanics
             };
         }
 
-        public static GameParty Create(int id, CharacterModel leader, CharacterModel member)
+        public static GameParty Create(int id,CharacterModel leader,CharacterModel member)
         {
             return new GameParty
             (
@@ -70,47 +70,28 @@ namespace DigitalWorldOnline.Commons.Models.Mechanics
                 newKey = (byte)(_members.Count);
             }
 
-            _members.Add(newKey, member);
+            _members.Add(newKey,member);
         }
 
-        public void ChangeLeader(int newLeaderSlot)
+        public void ChangeLeader(byte newLeaderSlot)
         {
-            LeaderSlot = newLeaderSlot;
-            LeaderId = _members.ElementAt(newLeaderSlot).Value.Id;
+            if (_members.TryGetValue(newLeaderSlot,out var newLeader))
+            {
+                LeaderSlot = newLeaderSlot;
+                LeaderId = newLeader.Id;
+            }
         }
 
-        public void UpdateMember(KeyValuePair<byte, CharacterModel> member, CharacterModel newData)
+        public void UpdateMember(KeyValuePair<byte,CharacterModel> member,CharacterModel newData)
         {
             if (_members.ContainsKey(member.Key))
                 _members[member.Key] = newData;
         }
-
-        public void RemoveMember(byte memberSlot)
+        public KeyValuePair<byte,CharacterModel>? GetMemberById(long memberId)
         {
-            if (_members.ContainsKey(memberSlot))
-            {
-                _members.Remove(memberSlot);
-                ReorderMembers();
-            }
+            return Members.FirstOrDefault(x => x.Value.Id == memberId);
         }
-
-        private void ReorderMembers()
-        {
-            var updatedMembers = _members.OrderBy(pair => pair.Key)
-                // .Select((pair, index) => new { Key = (byte)index, pair.Value })
-                .ToDictionary(pair => pair.Key, pair => pair.Value);
-
-            _members.Clear();
-            foreach (var kvp in updatedMembers)
-            {
-                if (kvp.Value.Id == LeaderId)
-                    LeaderSlot = kvp.Key;
-
-                _members.Add(kvp.Key, kvp.Value);
-            }
-        }
-
-        public void ChangeLootType(PartyLootShareTypeEnum lootType, PartyLootShareRarityEnum rareType)
+        public void ChangeLootType(PartyLootShareTypeEnum lootType,PartyLootShareRarityEnum rareType)
         {
             LootType = lootType;
             LootFilter = rareType;
@@ -119,5 +100,56 @@ namespace DigitalWorldOnline.Commons.Models.Mechanics
         public List<long> GetMembersIdList() => _members.Values.Select(x => x.Id).ToList();
 
         public object Clone() => MemberwiseClone();
+    
+
+    public void RemoveMember(byte memberSlot)
+        {
+            if (_members.ContainsKey(memberSlot))
+            {
+                var removedMember = _members[memberSlot];
+
+                _members.Remove(memberSlot);
+                ReorderMembers();
+
+                if (LeaderId == removedMember.Id)
+                {
+                    AssignNewLeader();
+                }
+            }
+        }
+
+        private void ReorderMembers()
+        {
+            var updatedMembers = _members.OrderBy(pair => pair.Key)
+                .ToDictionary(pair => pair.Key,pair => pair.Value);
+
+            _members.Clear();
+            foreach (var kvp in updatedMembers)
+            {
+                _members.Add(kvp.Key,kvp.Value);
+            }
+
+            ValidateLeader();
+        }
+
+        private void ValidateLeader()
+        {
+            if (!_members.Values.Any(member => member.Id == LeaderId))
+            {
+                AssignNewLeader();
+            }
+        }
+
+        private void AssignNewLeader()
+        {
+            if (_members.Count > 0)
+            {
+                var newLeaderEntry = _members.First();
+                LeaderSlot = newLeaderEntry.Key;
+                LeaderId = newLeaderEntry.Value.Id;
+                
+            }
+           
+        }
     }
 }

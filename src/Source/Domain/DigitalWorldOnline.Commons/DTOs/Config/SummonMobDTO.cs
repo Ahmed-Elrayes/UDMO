@@ -54,6 +54,7 @@ namespace DigitalWorldOnline.Commons.DTOs.Config
         /// Monster class type enumeration. 8 = Raid Boss
         /// </summary>
         public int Class { get; private set; }
+        public long SummonDTOId { get; set; }
 
         /// <summary>
         /// Mob reaction type.
@@ -156,7 +157,17 @@ namespace DigitalWorldOnline.Commons.DTOs.Config
         public SummonMobExpRewardDTO ExpReward { get; set; }
 
         public SummonMobLocationDTO Location { get; set; }
+        public object Clone()
+        {
+            var clonedObject = (SummonMobDTO)CloneMob();
 
+            return clonedObject;
+        }
+
+        private object CloneMob()
+        {
+            return (SummonMobDTO)MemberwiseClone();
+        }
 
     }
 }

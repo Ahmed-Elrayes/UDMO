@@ -1,4 +1,5 @@
 ﻿using DigitalWorldOnline.Commons.Enums;
+using DigitalWorldOnline.Commons.Models.Config.Events;
 using DigitalWorldOnline.Commons.Models.Summon;
 
 namespace DigitalWorldOnline.Commons.Models.Config
@@ -49,15 +50,26 @@ namespace DigitalWorldOnline.Commons.Models.Config
         public List<SummonMobModel> SummonMobs { get; private set; }
 
         /// <summary>
+        /// Child mobs.
+        /// </summary>
+        public List<EventMobConfigModel> EventMobs { get; private set; }
+
+        /// <summary>
         /// Kill spawns.
         /// </summary>
         public List<KillSpawnConfigModel> KillSpawns { get; private set; }
 
-        public MapConfigModel(short mapid, List<MobConfigModel> mobs)
+        public MapConfigModel(short mapId, List<MobConfigModel> mobs)
         {
             Type = MapTypeEnum.Default;
-            MapId = mapid;
+            MapId = mapId;
             Mobs = mobs;
+        }
+        public MapConfigModel(int mapId, List<EventMobConfigModel> mobs)
+        {
+            Type = MapTypeEnum.Event;
+            MapId = mapId;
+            EventMobs = mobs;
         }
 
         public MapConfigModel()
@@ -65,6 +77,7 @@ namespace DigitalWorldOnline.Commons.Models.Config
             Type = MapTypeEnum.Default;
             Mobs = new List<MobConfigModel>();
             SummonMobs = new List<SummonMobModel>();
+            EventMobs = new List<EventMobConfigModel>();
             KillSpawns = new List<KillSpawnConfigModel>();
         }
     }

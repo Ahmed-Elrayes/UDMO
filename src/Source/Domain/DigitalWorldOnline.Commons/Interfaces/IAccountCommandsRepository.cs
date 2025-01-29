@@ -7,6 +7,8 @@ namespace DigitalWorldOnline.Commons.Interfaces
     public interface IAccountCommandsRepository
     {
         Task<AccountDTO> AddAccountAsync(AccountModel account);
+        
+        Task<AccountBlockDTO> AddAccountBlockAsync(AccountBlockModel account);
 
         Task<LoginTryDTO> AddLoginTryAsync(LoginTryModel loginTry);
 

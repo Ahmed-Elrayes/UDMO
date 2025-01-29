@@ -20,10 +20,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly ILogger _logger;
         private readonly ISender _sender;
 
-        public QuestAcceptPacketProcessor(
-            AssetsLoader assets,
-            ILogger logger,
-            ISender sender)
+        public QuestAcceptPacketProcessor(AssetsLoader assets, ILogger logger, ISender sender)
         {
             _assets = assets;
             _logger = logger;
@@ -36,9 +33,12 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var questId = packet.ReadShort();
 
+            _logger.Debug($"Quest id: {questId}");
+
             if (client.Tamer.Progress.AcceptQuest(questId))
             {
                 var questInfo = _assets.Quest.FirstOrDefault(x => x.QuestId == questId);
+
                 if (questInfo == null)
                 {
                     _logger.Error($"Unknown quest id {questId}.");
@@ -63,6 +63,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     }
 
                     var itemClone = (ItemModel)item.Clone();
+
                     if (!client.Tamer.Inventory.AddItem(itemClone))
                     {
                         client.Send(new PickItemFailPacket(PickItemFailReasonEnum.InventoryFull));
@@ -72,7 +73,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                 }
 
-                _logger.Verbose($"Character {client.TamerId} accepted quest {questId}.");
+                _logger.Debug($"Tamer {client.TamerId}:{client.Tamer.Name} accepted quest {questId}.");
 
                 foreach (var questSupply in questInfo.QuestSupplies)
                 {

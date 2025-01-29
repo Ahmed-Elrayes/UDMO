@@ -16,7 +16,7 @@ using DigitalWorldOnline.Commons.Packets.Items;
 using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
-using DigitalWorldOnline.Infraestructure.Migrations;
+using DigitalWorldOnline.Infrastructure.Migrations;
 using MediatR;
 using Newtonsoft.Json.Linq;
 using Serilog;
@@ -80,7 +80,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             for (int i = 0; i < digimonCount; i++)
             {
                 var academySlot = packet.ReadShort();
-                _logger.Information($"academySlot: {academySlot}");
+                _logger.Debug($"academySlot: {academySlot}");
 
                 _transcendSlots.Add(academySlot);
             }

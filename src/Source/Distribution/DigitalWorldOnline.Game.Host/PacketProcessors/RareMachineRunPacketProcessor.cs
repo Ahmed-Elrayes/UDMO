@@ -39,16 +39,21 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         public async Task Process(GameClient client, byte[] packetData)
         {
-            var Kind = 1;
-
-            Random random = new Random();
             var packet = new GamePacketReader(packetData);
+
             var GeneralHandler = packet.ReadInt();
             var NpcId = packet.ReadInt();
             var inventorySlot = packet.ReadInt();
             var NpcId2 = packet.ReadInt();
+
+            var Kind = 1;
+
+            Random random = new Random();
+
             var Gotcha = _assets.Gotcha.FirstOrDefault(x => x.NpcId == NpcId);
+
             var ItemInfo = client.Tamer.Inventory.FindItemBySlot(inventorySlot);
+
             if (ItemInfo.Amount <= 0)
             {
                 client.Send(new GotchaErrorPacket());
@@ -58,6 +63,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             {
                 var availableItems = Gotcha.Items.Where(item => item.Quanty > 0).ToList();
                 var availableRareItems = Gotcha.RareItems.Where(item => item.RareItemCnt > 0).ToList();
+
                 if (availableItems.Count < 1 && availableRareItems.Count < 1)
                 {
 

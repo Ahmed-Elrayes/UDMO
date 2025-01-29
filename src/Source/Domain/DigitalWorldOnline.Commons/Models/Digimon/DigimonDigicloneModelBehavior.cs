@@ -77,7 +77,8 @@ namespace DigitalWorldOnline.Commons.Models.Digimon
                     }
                     break;
             }
-
+            
+            Console.WriteLine($"Digiclone increased {type} level to {CloneLevel}.");
             History.AddEntry(type, value);
         }
 

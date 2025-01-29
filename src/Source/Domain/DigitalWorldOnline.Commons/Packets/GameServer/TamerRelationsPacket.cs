@@ -19,7 +19,7 @@ namespace DigitalWorldOnline.Commons.Packets.GameServer
             foreach (var friend in friends)
             {
                 WriteByte(Convert.ToByte(friend.Connected));
-                WriteString(friend.Name);
+                WriteString(friend.Friend?.Name ?? "Friend");
 
                 if(string.IsNullOrEmpty(friend.Annotation))
                     WriteByte(0);

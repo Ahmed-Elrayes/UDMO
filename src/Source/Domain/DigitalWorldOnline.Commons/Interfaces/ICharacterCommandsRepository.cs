@@ -20,6 +20,8 @@ namespace DigitalWorldOnline.Commons.Interfaces
 
         Task<CharacterFriendDTO> AddFriendAsync(CharacterFriendModel friend);
 
+        //Task<AccountBlockDTO> AddBanAsync(AccountBlockModel ban);
+
         Task<DeleteCharacterResultEnum> DeleteCharacterByAccountAndPositionAsync(long accountId, byte characterPosition);
 
         Task UpdateDigicloneAsync(DigimonDigicloneModel digiclone);
@@ -126,12 +128,14 @@ namespace DigitalWorldOnline.Commons.Interfaces
 
         Task UpdateCharacterArenaDailyPointsAsync(CharacterArenaDailyPointsModel points);
 
-        Task UpdateCharacterDeckbuffAsync(CharacterModel character);
+        Task UpdateCharacterDeckBuffAsync(CharacterModel character);
 
         Task<CharacterEncyclopediaModel> CreateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
 
         Task UpdateCharacterEncyclopediaAsync(CharacterEncyclopediaModel characterEncyclopedia);
 
         Task UpdateCharacterEncyclopediaEvolutionsAsync(CharacterEncyclopediaEvolutionsModel characterEncyclopedia);
+
+        Task UpdateCharacterFriendsAsync(CharacterModel? character, bool connected);
     }
 }

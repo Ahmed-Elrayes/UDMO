@@ -1,6 +1,8 @@
-﻿using DigitalWorldOnline.Application;
+﻿using AutoMapper;
+using DigitalWorldOnline.Application;
 using DigitalWorldOnline.Application.Separar.Commands.Create;
 using DigitalWorldOnline.Application.Separar.Commands.Update;
+using DigitalWorldOnline.Commons.DTOs.Digimon;
 using DigitalWorldOnline.Commons.Entities;
 using DigitalWorldOnline.Commons.Enums;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
@@ -13,6 +15,7 @@ using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -25,25 +28,26 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         private readonly StatusManager _statusManager;
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly AssetsLoader _assets;
         private readonly ILogger _logger;
         private readonly ISender _sender;
+        private readonly IMapper _mapper;
 
-        public HatchFinishPacketProcessor(
-            StatusManager statusManager,
-            MapServer mapServer,
-            AssetsLoader assets,
-            ILogger logger,
-            ISender sender,
-            DungeonsServer dungeonsServer
-        )
+        public HatchFinishPacketProcessor(StatusManager statusManager, AssetsLoader assets,
+            MapServer mapServer, DungeonsServer dungeonsServer, EventServer eventServer, PvpServer pvpServer,
+            ILogger logger, ISender sender, IMapper mapper)
         {
             _statusManager = statusManager;
-            _mapServer = mapServer;
             _assets = assets;
+            _mapServer = mapServer;
+            _dungeonServer = dungeonsServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
-            _dungeonServer = dungeonsServer;
+            _mapper = mapper;
         }
 
         public async Task Process(GameClient client, byte[] packetData)
@@ -54,6 +58,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             var digiName = packet.ReadString();
 
             var hatchInfo = _assets.Hatchs.FirstOrDefault(x => x.ItemId == client.Tamer.Incubator.EggId);
+
             if (hatchInfo == null)
             {
                 _logger.Warning($"Unknown hatch info for egg {client.Tamer.Incubator.EggId}.");
@@ -61,14 +66,21 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 return;
             }
 
-            byte i = 0;
+
+            /*byte i = 0;
             while (i < client.Tamer.DigimonSlots)
             {
                 if (client.Tamer.Digimons.FirstOrDefault(x => x.Slot == i) == null)
                     break;
 
                 i++;
-            }
+            }*/
+
+            byte? digimonSlot = (byte)Enumerable.Range(0, client.Tamer.DigimonSlots)
+                .FirstOrDefault(slot => client.Tamer.Digimons.FirstOrDefault(x => x.Slot == slot) == null);
+
+            if (digimonSlot == null)
+                return;
 
             var newDigimon = DigimonModel.Create(
                 digiName,
@@ -76,7 +88,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 hatchInfo.HatchType,
                 (DigimonHatchGradeEnum)client.Tamer.Incubator.HatchLevel,
                 client.Tamer.Incubator.GetLevelSize(),
-                i
+                (byte)digimonSlot
             );
 
             newDigimon.NewLocation(
@@ -99,8 +111,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 )
             );
 
-            // Get evolution info
-            EvolutionAssetModel digimonEvolutionInfo = _assets.EvolutionInfo.First(x => x.Type == newDigimon.BaseType);
+            var digimonEvolutionInfo = _assets.EvolutionInfo.First(x => x.Type == newDigimon.BaseType);
 
             newDigimon.AddEvolutions(digimonEvolutionInfo);
 
@@ -113,17 +124,23 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             newDigimon.SetTamer(client.Tamer);
 
-            client.Tamer.AddDigimon(newDigimon);
-
-            client.Send(new HatchFinishPacket(newDigimon, (ushort)(client.Partner.GeneralHandler + 1000), client.Tamer.Digimons.FindIndex(x => x == newDigimon)));
-
             if (client.Tamer.Incubator.PerfectSize(newDigimon.HatchGrade, newDigimon.Size))
             {
-                _mapServer.BroadcastGlobal(new NeonMessagePacket(NeonMessageTypeEnum.Scale, client.Tamer.Name, newDigimon.BaseType, newDigimon.Size).Serialize());
+                client.SendToAll(new NeonMessagePacket(NeonMessageTypeEnum.Scale, client.Tamer.Name,
+                    newDigimon.BaseType, newDigimon.Size).Serialize());
+                /*_mapServer.BroadcastGlobal(new NeonMessagePacket(NeonMessageTypeEnum.Scale, client.Tamer.Name, newDigimon.BaseType, newDigimon.Size).Serialize());
                 _dungeonServer.BroadcastGlobal(new NeonMessagePacket(NeonMessageTypeEnum.Scale, client.Tamer.Name, newDigimon.BaseType, newDigimon.Size).Serialize());
+                _eventServer.BroadcastGlobal(new NeonMessagePacket(NeonMessageTypeEnum.Scale, client.Tamer.Name, newDigimon.BaseType, newDigimon.Size).Serialize());
+                _pvpServer.BroadcastGlobal(new NeonMessagePacket(NeonMessageTypeEnum.Scale, client.Tamer.Name, newDigimon.BaseType, newDigimon.Size).Serialize());*/
             }
+            
+            var digimonInfo = _mapper.Map<DigimonModel>(await _sender.Send(new CreateDigimonCommand(newDigimon)));
+            client.Tamer.AddDigimon(digimonInfo);
+            client.Tamer.Incubator.RemoveEgg();
+            await _sender.Send(new UpdateIncubatorCommand(client.Tamer.Incubator));
 
-            var digimonInfo = await _sender.Send(new CreateDigimonCommand(newDigimon));
+            client.Send(new HatchFinishPacket(newDigimon, (ushort)(client.Partner.GeneralHandler + 1000),
+                (byte)digimonSlot));
 
             if (digimonInfo != null)
             {
@@ -154,32 +171,32 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 }
             }
 
-            _logger.Verbose($"Character {client.TamerId} hatched {newDigimon.Id}({newDigimon.BaseType}) with grade {newDigimon.HatchGrade} and size {newDigimon.Size}.");
+            _logger.Verbose(
+                $"Character {client.TamerId} hatched {newDigimon.Id}({newDigimon.BaseType}) with grade {newDigimon.HatchGrade} and size {newDigimon.Size}.");
 
-            client.Tamer.Incubator.RemoveEgg();
+            // ------------------------------------------------------------------------------------------
 
-            // Get digimon base info
-            DigimonBaseInfoAssetModel digimonBaseInfo = newDigimon.BaseInfo;
-
-            // Get digimon evolutions
+            var digimonBaseInfo = newDigimon.BaseInfo;
             var digimonEvolutions = newDigimon.Evolutions;
 
-            // Write log with encyclopedia
-            _logger.Information($"type: {newDigimon.BaseType}, info: {digimonEvolutionInfo?.Id.ToString()}");
+            //_logger.Information($"type: {newDigimon.BaseType}, info: {digimonEvolutionInfo?.Id.ToString()}");
 
-            var encyclopediaExists = client.Tamer.Encyclopedia.Exists(x => x.DigimonEvolutionId == digimonEvolutionInfo?.Id);
+            var encyclopediaExists =
+                client.Tamer.Encyclopedia.Exists(x => x.DigimonEvolutionId == digimonEvolutionInfo?.Id);
 
             // Check if encyclopedia exists
             if (encyclopediaExists)
             {
-                // Write log with encyclopedia
-                _logger.Information($"type: {newDigimon.BaseType}, info: {digimonEvolutionInfo?.Id.ToString()}, encyclopedia exists");
+                _logger.Debug(
+                    $"type: {newDigimon.BaseType}, info: {digimonEvolutionInfo?.Id.ToString()}, encyclopedia exists");
             }
             else
             {
                 if (digimonEvolutionInfo != null)
                 {
-                    var encyclopedia = CharacterEncyclopediaModel.Create(client.TamerId, digimonEvolutionInfo.Id, newDigimon.Level, newDigimon.Size, 0, 0, 0, 0, 0, false, false);
+                    var encyclopedia = CharacterEncyclopediaModel.Create(client.TamerId, digimonEvolutionInfo.Id,
+                        newDigimon.Level, newDigimon.Size, 0, 0, 0, 0, 0, false, false);
+
                     digimonEvolutions?.ForEach(x =>
                     {
                         var evolutionLine = digimonEvolutionInfo.Lines.FirstOrDefault(y => y.Type == x.Type);
@@ -188,18 +205,24 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                         {
                             slotLevel = evolutionLine.SlotLevel;
                         }
-                        encyclopedia.Evolutions.Add(CharacterEncyclopediaEvolutionsModel.Create(encyclopedia.Id, x.Type, slotLevel, Convert.ToBoolean(x.Unlocked)));
+
+                        encyclopedia.Evolutions.Add(CharacterEncyclopediaEvolutionsModel.Create(encyclopedia.Id, x.Type,
+                            slotLevel, Convert.ToBoolean(x.Unlocked)));
                     });
 
                     var encyclopediaAdded = await _sender.Send(new CreateCharacterEncyclopediaCommand(encyclopedia));
 
                     client.Tamer.Encyclopedia.Add(encyclopediaAdded);
 
-                    _logger.Information($"Tamer encyclopedia count: {client.Tamer.Encyclopedia.Count} and last id is {client.Tamer.Encyclopedia.Last().Id}");
+                    _logger.Debug(
+                        $"Tamer encyclopedia count: {client.Tamer.Encyclopedia.Count} and last id is {client.Tamer.Encyclopedia.Last().Id}");
                 }
             }
 
-            await _sender.Send(new UpdateIncubatorCommand(client.Tamer.Incubator));
+            _logger.Debug(
+                $"Hatching Leveling status for character {client.Tamer.Name} is: {client.Tamer.LevelingStatus?.Id}");
+            _logger.Debug(
+                $"Hatching Leveling status in digimon for character {newDigimon.Character.Name} is: {newDigimon.Character.LevelingStatus?.Id}");
         }
     }
 }

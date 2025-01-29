@@ -3,36 +3,26 @@
 @using DigitalWorldOnline.Commons.Enums;
 @using DigitalWorldOnline.Commons.ViewModel.Mobs;
 @using DigitalWorldOnline.Commons.ViewModel.Summons;
+@using DigitalWorldOnline.Commons.ViewModel.Maps;
+
 
 <PageTitle>DMO - Admin</PageTitle>
 
-<MudExpansionPanels Elevation="2" Style="padding-bottom:15px">
-    <MudExpansionPanel>
-        <TitleContent>
+<MudGrid>
+    <MudItem xs="12" sm="6">
+        <MudTextField T="string" @ref="_filterParameter" Label="Map ID" Variant="Variant.Outlined" ValueChanged="Filter"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"></MudTextField>
+    </MudItem>
+
+    <MudItem xs="12" Class="d-flex">
+        <div class="d-flex ml-auto">
             <MudStack Row="true" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Filled.FilterAlt" class="mr-3"></MudIcon>
-                <MudText>Filters</MudText>
+                <MudButton Color="Color.Inherit" Variant="Variant.Filled" OnClick="Clear">Clear</MudButton>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Refresh">Search</MudButton>
             </MudStack>
-        </TitleContent>
-        <ChildContent>
-            <MudGrid>
-                <MudItem xs="12" sm="6">
-                    <MudTextField T="string" @ref="_filterParameter" Label="Summon item id or name" Variant="Variant.Outlined" ValueChanged="Filter"></MudTextField>
-                </MudItem>
-
-                <MudItem xs="12" Class="d-flex">
-                    <div class="d-flex ml-auto">
-                        <MudStack Row="true" Spacing="2">
-                            <MudButton Color="Color.Inherit" Variant="Variant.Filled" OnClick="Clear">Clear</MudButton>
-                            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Refresh">Refresh</MudButton>
-                        </MudStack>
-                    </div>
-                </MudItem>
-
-            </MudGrid>
-        </ChildContent>
-    </MudExpansionPanel>
-</MudExpansionPanels>
+        </div>
+    </MudItem>
+</MudGrid>
 <MudTable FixedHeader="true"
           FixedFooter="false"
           ServerData="@(new Func<TableState, Task<TableData<SummonViewModel>>>(ServerReload))"
@@ -51,22 +41,23 @@
     </ToolBarContent>
     <HeaderContent>
         <MudTh>
-            <MudTableSortLabel SortLabel="ItemId" T="SummonViewModel"><b>Item Id</b></MudTableSortLabel>
+            <MudTableSortLabel SortLabel="IdSummoning" T="SummonViewModel"><b>SummonDTOId</b></MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel SortLabel="Maps" T="SummonViewModel"><b>Maps</b></MudTableSortLabel>
+            <MudTableSortLabel SortLabel="ItemId" T="SummonViewModel"><b>ItemId</b></MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel Enabled="false" T="SummonViewModel"><b>Actions</b></MudTableSortLabel>
+            <MudTableSortLabel Enabled="false" T="SummonViewModel"><b>MapID</b></MudTableSortLabel>
         </MudTh>
     </HeaderContent>
     <RowTemplate>
+        <MudTd DataLabel="IdSummoning">@context.Id</MudTd>
         <MudTd DataLabel="ItemId">@context.ItemId</MudTd>
-        <MudTd>@context.Maps.Select(x => x)</MudTd>
+        <MudTd>@string.Join(", ", context.Maps)</MudTd>
         <MudTd>
-            <MudIconButton Icon="@Icons.Material.Filled.Edit" OnClick="@(() => Update(context.Id))" Title="Update" Size="Size.Small"></MudIconButton>
-            <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => Duplicate(context.Id))" Title="Duplicate" Size="Size.Small"></MudIconButton>
-            <MudIconButton Icon="@Icons.Material.Filled.Delete" OnClick="@(() => Delete(context.Id))" Title="Delete" Size="Size.Small"></MudIconButton>
+            <MudIconButton Icon="@Icons.Material.Filled.RemoveRedEye" OnClick="@(() => ViewSummonMobs(context.Id))" Title="Mobs" Size="Size.Small"></MudIconButton>
+@*             <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" OnClick="@(() => Duplicate(context.Id))" Title="Duplicate" Size="Size.Small"></MudIconButton>
+ *@            <MudIconButton Icon="@Icons.Material.Filled.Delete" OnClick="@(() => Delete(context.Id))" Title="Delete" Size="Size.Small"></MudIconButton>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>

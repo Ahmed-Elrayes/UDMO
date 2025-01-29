@@ -4,6 +4,7 @@ using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
+using DigitalWorldOnline.Commons.Utils;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
 using Serilog;
@@ -60,7 +61,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                         }
 
                         leaderClient.Send(new PartyCreatedPacket(dungeonParty.Id, dungeonParty.LootType));
-                        leaderClient.Send(new PartyMemberJoinPacket(dungeonParty[client.TamerId], true));
+                        leaderClient.Send(new PartyMemberJoinPacket(dungeonParty[client.TamerId], leaderClient.Tamer));
                         leaderClient.Send(new PartyMemberInfoPacket(dungeonParty[client.TamerId]));
                         leaderClient.Send(new PartyRequestSentFailedPacket(PartyRequestFailedResultEnum.Accept, client.Tamer.Name));
 
@@ -87,7 +88,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                             {
                                 if (targetClient.Tamer.Id == dungeonParty.LeaderId)
                                 {
-                                    targetClient.Send(new PartyMemberJoinPacket(dungeonParty[client.TamerId], true));
+                                    targetClient.Send(new PartyMemberJoinPacket(dungeonParty[client.TamerId], leaderClient.Tamer));
                                     targetClient.Send(new PartyMemberInfoPacket(dungeonParty[client.TamerId], true));
                                 }
                                 else
@@ -133,12 +134,21 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     }
                 }
 
-                leaderClient.Send(new PartyCreatedPacket(party.Id, party.LootType));
-
-                client.Send(new PartyMemberListPacket(party, client.TamerId));
+                /*leaderClient.Send(new PartyCreatedPacket(party.Id, party.LootType));
                 leaderClient.Send(new PartyRequestSentFailedPacket(PartyRequestFailedResultEnum.Accept, client.Tamer.Name));
-                leaderClient.Send(new PartyMemberJoinPacket(party[client.TamerId], true));
+                leaderClient.Send(new PartyMemberJoinPacket(party[client.TamerId], leaderClient.Tamer));
                 leaderClient.Send(new PartyMemberInfoPacket(party[client.TamerId]));
+                leaderClient.Send(new PartyMemberMovimentationPacket(party[client.TamerId]));*/
+                leaderClient.Send(
+                    UtilitiesFunctions.GroupPackets(
+                        new PartyCreatedPacket(party.Id, party.LootType).Serialize(),
+                        new PartyRequestSentFailedPacket(PartyRequestFailedResultEnum.Accept, client.Tamer.Name).Serialize(),
+                        new PartyMemberJoinPacket(party[client.TamerId], leaderClient.Tamer).Serialize(),
+                        new PartyMemberInfoPacket(party[client.TamerId]).Serialize(),
+                        new PartyMemberMovimentationPacket(party[client.TamerId]).Serialize()
+                    ));
+                
+                client.Send(new PartyMemberListPacket(party, client.TamerId));
 
             }
             else
@@ -159,7 +169,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                     if (target.Id != client.Tamer.Id)
                     {
-                        targetClient.Send(new PartyMemberJoinPacket(party[client.TamerId]));
+                        targetClient.Send(new PartyMemberJoinPacket(party[client.TamerId], targetClient.Tamer));
                         targetClient.Send(new PartyMemberInfoPacket(party[client.TamerId]));
                     }
                 }

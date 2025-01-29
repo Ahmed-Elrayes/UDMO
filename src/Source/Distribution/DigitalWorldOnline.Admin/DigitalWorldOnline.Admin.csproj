@@ -14,6 +14,10 @@
 		<PackageReference Include="Blazored.LocalStorage" Version="4.3.0" />
 		<PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.Abstractions" Version="2.2.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.0">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.ApiDescription.Client" Version="7.0.2">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -32,7 +36,6 @@
 	
 	<ItemGroup>
 	  <Folder Include="Pages\Chat\" />
-	  <Folder Include="Pages\Events\" />
 	  <Folder Include="Pages\Items\" />
 	  <Folder Include="Pages\Settings\" />
 	</ItemGroup>
@@ -48,7 +51,7 @@
 	</ItemGroup>
 	
 	<ItemGroup>
-	  <ProjectReference Include="..\..\Infra\DigitalWorldOnline.Infraestructure\DigitalWorldOnline.Infraestructure.csproj" />
+	  <ProjectReference Include="..\..\Infra\DigitalWorldOnline.Infrastructure\DigitalWorldOnline.Infrastructure.csproj" />
 	</ItemGroup>
 	
 	<ItemGroup>
@@ -67,6 +70,26 @@
 	  <None Update="Pages\Downloads\x86\DSO_Installer_X86.zip">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+	</ItemGroup>
+	
+	<ItemGroup>
+	  <AdditionalFiles Include="Pages\Events\Maps\Mobs\MobCreation.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Mobs\MobDelete.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Mobs\MobDuplicate.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Mobs\Mobs.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Mobs\MobUpdate.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Raids\RaidCreation.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Raids\RaidDelete.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Raids\RaidDuplicate.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Raids\Raids.razor" />
+	  <AdditionalFiles Include="Pages\Events\Maps\Raids\RaidUpdate.razor" />
+	</ItemGroup>
+	
+	<ItemGroup>
+	  <_ContentIncludedByDefault Remove="Pages\Events\Maps\SpawnPoints\SpawnPointCreation.razor" />
+	  <_ContentIncludedByDefault Remove="Pages\Events\Maps\SpawnPoints\SpawnPointDelete.razor" />
+	  <_ContentIncludedByDefault Remove="Pages\Events\Maps\SpawnPoints\SpawnPoints.razor" />
+	  <_ContentIncludedByDefault Remove="Pages\Events\Maps\SpawnPoints\SpawnPointUpdate.razor" />
 	</ItemGroup>
 	
 	<ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>

@@ -50,7 +50,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
             Items = existingItens;
         }
 
-      
+
         /// <summary>
         /// Increase the current inventory size/slots.
         /// </summary>
@@ -98,6 +98,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
             {
                 total = total + targetItem.Amount;
             }
+
             return total;
         }
 
@@ -215,7 +216,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
 
             return ItemInfo;
         }
-        
+
         public ItemModel FindItemByTradeSlot(int slot)
         {
             if (slot < 0) return null;
@@ -224,7 +225,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
 
             return ItemInfo;
         }
-        
+
         public ItemModel GiftFindItemBySlot(int slot)
         {
             if (slot < 0) return null;
@@ -240,7 +241,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
 
         public bool UpdateGiftSlot()
         {
-            var ItemInfo = Items.Where( x => x.ItemId > 0).ToList();
+            var ItemInfo = Items.Where(x => x.ItemId > 0).ToList();
 
             if (ItemInfo.Count <= 0)
                 return false;
@@ -256,13 +257,13 @@ namespace DigitalWorldOnline.Commons.Models.Base
                 newItem.SetAmount(item.Amount);
                 newItem.SetItemInfo(item.ItemInfo);
 
-                RemoveItem(item, (short)item.Slot);             
+                RemoveItem(item, (short)item.Slot);
                 AddItem(newItem);
             }
 
             return true;
         }
-        
+
         /// <summary>
         /// Returns the first empty slot index or -1.
         /// </summary>
@@ -307,7 +308,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
             }
         }
 
-        public bool AddItems(List<ItemModel> itemsToAdd)
+        public bool AddItems(List<ItemModel> itemsToAdd, bool isShop = false)
         {
             var backup = BackupOperation();
 
@@ -318,8 +319,8 @@ namespace DigitalWorldOnline.Commons.Models.Base
                 if (itemToAdd.Amount == 0 || itemToAdd.ItemId == 0)
                     continue;
 
-                FillExistentSlots(itemToAdd);
-                AddNewSlots(itemToAdd);
+                FillExistentSlots(itemToAdd, isShop);
+                AddNewSlots(itemToAdd, isShop);
 
                 if (itemToAdd.Amount > 0)
                 {
@@ -450,8 +451,6 @@ namespace DigitalWorldOnline.Commons.Models.Base
 
         public bool SplitItem(ItemModel itemToAdd, int targetSlot)
         {
-            //TODO: Backup?
-
             if (itemToAdd == null || itemToAdd.Amount == 0 || itemToAdd.ItemId == 0)
                 return false;
 
@@ -476,7 +475,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
             CheckEmptyItems();
         }
 
-        private void AddNewSlots(ItemModel itemToAdd)
+        private void AddNewSlots(ItemModel itemToAdd, bool isShop = false)
         {
             while (itemToAdd.Amount > 0 && Count < Size)
             {
@@ -484,7 +483,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
 
                 var newItem = (ItemModel)itemToAdd.Clone();
 
-                if (itemToAdd.Amount > itemToAdd.ItemInfo.Overlap)
+                if (itemToAdd.Amount > itemToAdd.ItemInfo.Overlap && !isShop)
                 {
                     itemToAdd.ReduceAmount(itemToAdd.ItemInfo.Overlap);
                     newItem.SetAmount(itemToAdd.ItemInfo.Overlap);
@@ -501,16 +500,15 @@ namespace DigitalWorldOnline.Commons.Models.Base
 
         internal void CheckExpiredItems()
         {
-            
         }
 
-        private void FillExistentSlots(ItemModel itemToAdd)
+        private void FillExistentSlots(ItemModel itemToAdd, bool isShop = false)
         {
             var targetItems = FindItemsById(itemToAdd.ItemId);
 
             foreach (var targetItem in targetItems.Where(x => x.ItemInfo.Overlap > 1))
             {
-                if (targetItem.Amount + itemToAdd.Amount > itemToAdd.ItemInfo.Overlap)
+                if (targetItem.Amount + itemToAdd.Amount > itemToAdd.ItemInfo.Overlap && !isShop)
                 {
                     itemToAdd.ReduceAmount(itemToAdd.ItemInfo.Overlap - targetItem.Amount);
                     targetItem.SetAmount(itemToAdd.ItemInfo.Overlap);
@@ -543,6 +541,7 @@ namespace DigitalWorldOnline.Commons.Models.Base
                 }
 
                 targetItem.SetItemId(itemToAdd.ItemId);
+                targetItem.SetItemInfo(itemToAdd.ItemInfo);
                 targetItem.SetRemainingTime((uint)itemToAdd.ItemInfo.UsageTimeMinutes);
             }
         }
@@ -646,6 +645,44 @@ namespace DigitalWorldOnline.Commons.Models.Base
             return true;
         }
 
+        public bool RemoveOrReduceItems(List<ItemModel> itemsToRemoveOrReduce, bool reArrangeSlots = true)
+        {
+            var backup = BackupOperation();
+
+            //TODO: teste com 2 slots do mesmo itemId
+            foreach (var itemToRemove in itemsToRemoveOrReduce)
+            {
+                if (itemToRemove.Amount == 0 || itemToRemove.ItemId == 0)
+                    continue;
+
+                var targetItems = FindItemsById(itemToRemove.ItemId);
+
+                foreach (var targetItem in targetItems)
+                {
+                    if (targetItem.Amount >= itemToRemove.Amount)
+                    {
+                        targetItem.ReduceAmount(itemToRemove.Amount);
+                        itemToRemove.SetAmount();
+                        break;
+                    }
+
+                    itemToRemove.ReduceAmount(targetItem.Amount);
+                    targetItem.SetAmount();
+                }
+
+                if (itemToRemove.Amount <= 0)
+                {
+                    continue;
+                }
+
+                RevertOperation(backup);
+                return false;
+            }
+
+            CheckEmptyItemsThenRearrangeSlots();
+            return true;
+        }
+
         public bool RemoveOrReduceItem(ItemModel? itemToRemove, int amount, int slot = -1)
         {
             if (itemToRemove == null || amount == 0) return false;
@@ -653,9 +690,25 @@ namespace DigitalWorldOnline.Commons.Models.Base
             var tempItem = (ItemModel?)itemToRemove.Clone();
             tempItem?.SetAmount(amount);
 
-            return slot > -1 ?
-                RemoveOrReduceItemWithSlot(tempItem, slot) :
-                RemoveOrReduceItemWithoutSlot(tempItem);
+            return slot > -1 ? RemoveOrReduceItemWithSlot(tempItem, slot) : RemoveOrReduceItemWithoutSlot(tempItem);
+        }
+
+        public List<ItemModel> AddSlotsAll(byte amount = 1)
+        {
+            List<ItemModel> newSlots = new List<ItemModel>();
+            for (byte i = 0; i < amount; i++)
+            {
+                var newItemSlot = new ItemModel(Items.Max(x => x.Slot))
+                {
+                    ItemListId = Id
+                };
+
+                newSlots.Add(newItemSlot);
+                Items.Add(newItemSlot);
+                Size++;
+            }
+
+            return newSlots;
         }
 
         public bool RemoveOrReduceItemWithSlot(ItemModel? itemToRemove, int slot)
@@ -754,6 +807,30 @@ namespace DigitalWorldOnline.Commons.Models.Base
             });
         }
 
+        public void CheckEmptyItemsThenRearrangeSlots()
+        {
+            // Filter and update any item with invalid data (e.g., ItemId == 0 or Amount <= 0)
+            foreach (var item in Items.Where(item => item.ItemId == 0 || item.Amount <= 0))
+            {
+                item.SetItemId(); // Set a valid item ID
+                item.SetAmount(); // Set a valid amount
+                item.SetRemainingTime(); // Set the remaining time
+                item.SetSellPrice(0); // Set the sell price to 0 if invalid
+            }
+
+            // 2. Reorder and reassign slots, then update `Items` with the reordered list.
+            int slot = 0;
+            Items = Items
+                .OrderBy(item => item.ItemId > 0 ? 0 : 1) // Items with ItemId > 0 come first
+                .ThenBy(item => item.Slot) // Further sort by the existing Slot values
+                .Select(item =>
+                {
+                    item.SetSlot(slot++); // Reassign slots sequentially
+                    return item;
+                })
+                .ToList(); // Update the Items collection with the reordered list
+        }
+
         /// <summary>
         /// Serializes the current instance to byte array.
         /// </summary>
@@ -783,22 +860,22 @@ namespace DigitalWorldOnline.Commons.Models.Base
         {
             byte[] buffer;
 
-            using (MemoryStream m = new())
+            using MemoryStream m = new();
+            var filteredItems = Items.Where(x => x.ItemId > 0).OrderBy(x => x.Slot);
+            var filteredItemsList = filteredItems.ToList();
+
+            if (filteredItemsList.Any())
             {
-                var filteredItems = Items.Where(x => x.ItemId > 0).OrderBy(x => x.Slot);
-                
-                if (filteredItems.Any())
+                foreach (var item in filteredItemsList)
                 {
-                    foreach (var item in filteredItems)
-                    {
-                        m.Write(item.GiftToArray(), 0, 68);
-                    }
-                    buffer = m.ToArray();
+                    m.Write(item.GiftToArray(), 0, 68);
                 }
-                else
-                {
-                    buffer = new byte[0]; // Nenhum item com ItemId > 0 encontrado, retornar um array vazio.
-                }
+
+                buffer = m.ToArray();
+            }
+            else
+            {
+                buffer = Array.Empty<byte>(); // Nenhum item com ItemId > 0 encontrado, retornar um array vazio.
             }
 
             return buffer;
@@ -808,24 +885,24 @@ namespace DigitalWorldOnline.Commons.Models.Base
         {
             byte[] buffer;
 
-            using (MemoryStream m = new())
+            using MemoryStream m = new();
+            var filteredItems = Items.Where(x => x.ItemId > 0).OrderBy(x => x.Slot);
+            var filteredItemsList = filteredItems.ToList();
+
+            if (filteredItemsList.Any())
             {
-                var filteredItems = Items.Where(x => x.ItemId > 0).OrderBy(x => x.Slot);
-
-                if (filteredItems.Any())
+                foreach (var item in filteredItemsList)
                 {
-                    foreach (var item in filteredItems)
-                    {
-                        var itemArray = item.NewGiftToArray();
+                    var itemArray = item.NewGiftToArray();
 
-                        m.Write(itemArray, 0, itemArray.Length);
-                    }
-                    buffer = m.ToArray();
+                    m.Write(itemArray, 0, itemArray.Length);
                 }
-                else
-                {
-                    buffer = new byte[0];
-                }
+
+                buffer = m.ToArray();
+            }
+            else
+            {
+                buffer = Array.Empty<byte>();
             }
 
             return buffer;

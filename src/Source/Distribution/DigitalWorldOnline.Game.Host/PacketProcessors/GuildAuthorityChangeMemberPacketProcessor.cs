@@ -12,8 +12,7 @@ using DigitalWorldOnline.Commons.Models.Mechanics;
 using DigitalWorldOnline.Commons.Packets.Chat;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.GameHost;
-
-
+using DigitalWorldOnline.GameHost.EventsServer;
 using MediatR;
 using Serilog;
 
@@ -25,22 +24,29 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
         private readonly IMapper _mapper;
 
         public GuildAuthorityChangeMemberPacketProcessor(
             MapServer mapServer,
+            DungeonsServer dungeonServer,
+            EventServer eventServer,
+            PvpServer pvpServer,
             ILogger logger,
             ISender sender,
-            IMapper mapper,
-            DungeonsServer dungeonServer)
+            IMapper mapper
+        )
         {
             _mapServer = mapServer;
+            _dungeonServer = dungeonServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
             _mapper = mapper;
-            _dungeonServer = dungeonServer;
         }
 
         public async Task Process(GameClient client, byte[] packetData)
@@ -59,7 +65,8 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             }
 
             _logger.Debug($"Searching guild by character id {targetCharacter.Id}...");
-            var targetGuild = _mapper.Map<GuildModel>(await _sender.Send(new GuildByCharacterIdQuery(targetCharacter.Id)));
+            var targetGuild =
+                _mapper.Map<GuildModel>(await _sender.Send(new GuildByCharacterIdQuery(targetCharacter.Id)));
             if (targetGuild == null)
             {
                 _logger.Warning($"Character {targetName} does not belong to a guild.");
@@ -78,7 +85,9 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     }
                     else
                     {
-                        guildMember.SetCharacterInfo(_mapper.Map<CharacterModel>(await _sender.Send(new CharacterByIdQuery(guildMember.CharacterId))));
+                        guildMember.SetCharacterInfo(
+                            _mapper.Map<CharacterModel>(
+                                await _sender.Send(new CharacterByIdQuery(guildMember.CharacterId))));
                     }
                 }
             }
@@ -89,25 +98,43 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 var newAuthority = GuildAuthorityTypeEnum.Member;
 
                 targetMember.SetAuthority(newAuthority);
-                var newEntry = targetGuild.AddHistoricEntry((GuildHistoricTypeEnum)newAuthority, targetGuild.Master, targetMember);
+                var newEntry = targetGuild.AddHistoricEntry((GuildHistoricTypeEnum)newAuthority, targetGuild.Master,
+                    targetMember);
 
                 targetGuild.Members
-                .ForEach(guildMember =>
-                {
-                    _logger.Debug($"Sending guild historic packet for character {guildMember.CharacterId}...");
-                    _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
-                        new GuildHistoricPacket(targetGuild.Historic).Serialize());
+                    .ForEach(guildMember =>
+                    {
+                        _logger.Debug($"Sending guild historic packet for character {guildMember.CharacterId}...");
+                        _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildHistoricPacket(targetGuild.Historic).Serialize());
 
-                    _dungeonServer.BroadcastForUniqueTamer(guildMember.CharacterId,
-                       new GuildHistoricPacket(targetGuild.Historic).Serialize());
+                        _dungeonServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildHistoricPacket(targetGuild.Historic).Serialize());
 
-                    _logger.Debug($"Sending guild authority change packet for character {guildMember.CharacterId}...");
-                    _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
-                        new GuildPromotionDemotionPacket(packet.Type, targetName, targetGuild.FindAuthority(newAuthority).Duty).Serialize());
+                        _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildHistoricPacket(targetGuild.Historic).Serialize());
 
-                    _dungeonServer.BroadcastForUniqueTamer(guildMember.CharacterId,
-                       new GuildPromotionDemotionPacket(packet.Type, targetName, targetGuild.FindAuthority(newAuthority).Duty).Serialize());
-                });
+                        _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildHistoricPacket(targetGuild.Historic).Serialize());
+
+                        _logger.Debug(
+                            $"Sending guild authority change packet for character {guildMember.CharacterId}...");
+                        _mapServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildPromotionDemotionPacket(packet.Type, targetName,
+                                targetGuild.FindAuthority(newAuthority).Duty).Serialize());
+
+                        _dungeonServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildPromotionDemotionPacket(packet.Type, targetName,
+                                targetGuild.FindAuthority(newAuthority).Duty).Serialize());
+
+                        _eventServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildPromotionDemotionPacket(packet.Type, targetName,
+                                targetGuild.FindAuthority(newAuthority).Duty).Serialize());
+
+                        _pvpServer.BroadcastForUniqueTamer(guildMember.CharacterId,
+                            new GuildPromotionDemotionPacket(packet.Type, targetName,
+                                targetGuild.FindAuthority(newAuthority).Duty).Serialize());
+                    });
 
                 _logger.Debug($"Saving historic entry for guild {targetGuild.Id}...");
                 await _sender.Send(new CreateGuildHistoricEntryCommand(newEntry, targetGuild.Id));

@@ -4,12 +4,12 @@ using DigitalWorldOnline.Commons.DTOs.Assets;
 using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Models.Asset;
 using DigitalWorldOnline.Commons.Models.Assets;
+using DigitalWorldOnline.Commons.Models.Config;
 using DigitalWorldOnline.Commons.Models.Events;
 using DigitalWorldOnline.Commons.Models.Summon;
 using FluentValidation;
 using MediatR;
 using Serilog;
-using Serilog.Core;
 
 namespace DigitalWorldOnline.Application
 {
@@ -27,6 +27,7 @@ namespace DigitalWorldOnline.Application
 
         public List<ItemAssetModel> ItemInfo { get; private set; }
         public List<SummonModel> SummonInfo { get; private set; }
+        public List<SummonMobModel> SummonMobInfo { get; private set; }
         public List<CharacterLevelStatusAssetModel> TamerLevelInfo { get; private set; }
         public List<CharacterBaseStatusAssetModel> TamerBaseInfo { get; private set; }
         public List<DigimonLevelStatusAssetModel> DigimonLevelInfo { get; private set; }
@@ -63,9 +64,9 @@ namespace DigitalWorldOnline.Application
         public List<CashShopAssetModel> CashShopAssets { get; private set; }
         public List<TimeRewardAssetModel> TimeRewardAssets { get; private set; }
         public List<TimeRewardModel> TimeRewardEvents { get; private set; }
-
         public List<GotchaAssetModel> Gotcha { get; private set; }
-
+        public List<DeckBuffModel> DeckBuffs { get; private set; }
+        
         public AssetsLoader(ISender sender, IMapper mapper, ILogger logger)
         {
             _sender = sender;
@@ -130,6 +131,7 @@ namespace DigitalWorldOnline.Application
             }
             ItemInfo = _mapper.Map<List<ItemAssetModel>>(await _sender.Send(new ItemAssetsQuery()));
             SummonInfo = _mapper.Map<List<SummonModel>>(await _sender.Send(new SummonAssetsQuery()));
+            SummonMobInfo = _mapper.Map<List<SummonMobModel>>(await _sender.Send(new SummonMobAssetsQuery()));
             SkillCodeInfo = _mapper.Map<List<SkillCodeAssetModel>>(await _sender.Send(new SkillCodeAssetsQuery()));
             TamerLevelInfo = _mapper.Map<List<CharacterLevelStatusAssetModel>>(await _sender.Send(new TamerLevelingAssetsQuery()));
             TamerBaseInfo = _mapper.Map<List<CharacterBaseStatusAssetModel>>(await _sender.Send(new TamerBaseStatusAssetsQuery()));
@@ -164,6 +166,7 @@ namespace DigitalWorldOnline.Application
             CashShopAssets = _mapper.Map<List<CashShopAssetModel>>(await _sender.Send(new CashShopAssetsQuery()));
             TimeRewardAssets = _mapper.Map<List<TimeRewardAssetModel>>(await _sender.Send(new TimeRewardAssetsQuery()));
             TimeRewardEvents = _mapper.Map<List<TimeRewardModel>>(await _sender.Send(new TimeRewardEventsQuery()));
+            DeckBuffs = _mapper.Map<List<DeckBuffModel>>(await _sender.Send(new DeckBuffAssetsQuery()));
 
             try
 

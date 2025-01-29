@@ -25,7 +25,12 @@
         /// <summary>
         /// Total Critical value.
         /// </summary>
-        public int CTValue { get; private set; } //TODO: separar CR e CD
+        public int CTValue { get; private set; }
+        
+        /// <summary>
+        /// Total Critical Damage value.
+        /// </summary>
+        public int CDValue { get; private set; }
 
         /// <summary>
         /// Total Defense value.
@@ -70,6 +75,7 @@
             int atValue,
             int blValue,
             int ctValue,
+            int cdValue,
             int deValue,
             int dsValue,
             int evValue,
@@ -84,6 +90,7 @@
             ATValue = atValue;
             BLValue = blValue;
             CTValue = ctValue;
+            CDValue = cdValue;
             DEValue = deValue;
             DSValue = dsValue;
             EVValue = evValue;

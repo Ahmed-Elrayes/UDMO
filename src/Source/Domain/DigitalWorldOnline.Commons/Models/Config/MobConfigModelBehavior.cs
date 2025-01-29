@@ -12,16 +12,17 @@ namespace DigitalWorldOnline.Commons.Models.Config
 {
     public sealed partial class MobConfigModel
     {
-
         private const int HandlerRange = 65538;
         private int _targetHandler;
         private bool _giveUp;
 
         #region Target
+
         public DigimonModel? Target => TargetTamer?.Partner;
         public CharacterModel? TargetTamer => TargetTamers.FirstOrDefault(x => x.GeneralHandler == _targetHandler);
         public int TargetHandler => Target?.GeneralHandler ?? 0;
         public bool TargetAlive => Target != null && Target.Alive;
+
         #endregion
 
         public bool CanAct => DateTime.Now > LastActionTime;
@@ -53,13 +54,16 @@ namespace DigitalWorldOnline.Commons.Models.Config
 
                     double attributeAdvantage = 1.5; // Defina o valor do attributeAdvantage conforme necessário
 
-                    if (Attribute.HasAttributeAdvantage(Target.BaseInfo.Attribute) || Element.HasElementAdvantage(Target.BaseInfo.Element))
+                    if (Attribute.HasAttributeAdvantage(Target.BaseInfo.Attribute) ||
+                        Element.HasElementAdvantage(Target.BaseInfo.Element))
                         attributeAdvantage = 2.0;
 
-                    if (Target.BaseInfo.Attribute.HasAttributeAdvantage(Attribute) || Target.BaseInfo.Element.HasElementAdvantage(Element))
+                    if (Target.BaseInfo.Attribute.HasAttributeAdvantage(Attribute) ||
+                        Target.BaseInfo.Element.HasElementAdvantage(Element))
                         attributeAdvantage = 1.0;
 
-                    double adjustedPercent = CalcularProbabilidadeAcerto(AttackerHitRate, Level, Target.Level, TargetEvasion, attributeAdvantage);
+                    double adjustedPercent = CalcularProbabilidadeAcerto(AttackerHitRate, Level, Target.Level,
+                        TargetEvasion, attributeAdvantage);
 
                     if (adjustedPercent <= 1.0)
                         adjustedPercent = 0;
@@ -83,7 +87,8 @@ namespace DigitalWorldOnline.Commons.Models.Config
             return true;
         }
 
-        public static double CalcularProbabilidadeAcerto(double seuHitRate, int seuNivel, int nivelDoMonstro, double evDoMonstro, double attributeAdvantage)
+        public static double CalcularProbabilidadeAcerto(double seuHitRate, int seuNivel, int nivelDoMonstro,
+            double evDoMonstro, double attributeAdvantage)
         {
             double diferencaDeNiveis = seuNivel - nivelDoMonstro;
             double levelMultiplier = 1 / (1 + Math.Exp(-diferencaDeNiveis / 9.0));
@@ -126,7 +131,8 @@ namespace DigitalWorldOnline.Commons.Models.Config
 
         public bool Chasing => ChaseEndTime > DateTime.Now;
 
-        public bool SkillTime => DateTime.Now >= LastSkillTryTime.AddSeconds(10) && DateTime.Now >= LastSkillTime.AddMilliseconds(Cooldown);
+        public bool SkillTime => DateTime.Now >= LastSkillTryTime.AddSeconds(10) &&
+                                 DateTime.Now >= LastSkillTime.AddMilliseconds(Cooldown);
 
 
         /// <summary>
@@ -248,13 +254,13 @@ namespace DigitalWorldOnline.Commons.Models.Config
         public void UpdateLastSkill() => LastSkillTime = DateTime.Now;
 
         public void UpdateLastSkillTry() => LastSkillTryTime = DateTime.Now;
-        
+
         public void UpdateLastHeal() => LastHealTime = DateTime.Now.AddMilliseconds(7500);
 
         public void UpdateCurrentAction(MobActionEnum action) => CurrentAction = action;
 
         public void UpdateCheckSkill(bool condition) => CheckSkill = condition;
-        
+
         public int ReceiveDamage(int damage, long tamerId)
         {
             if (!RaidDamage.ContainsKey(tamerId))
@@ -277,13 +283,17 @@ namespace DigitalWorldOnline.Commons.Models.Config
             switch (CurrentAction)
             {
                 case MobActionEnum.Wait:
-                    {                      
+                    {
                         if (InBattle)
                         {
-                            if(SkillTime && !CheckSkill && IsPossibleSkill)
-                            CurrentAction = MobActionEnum.UseAttackSkill;
+                            if (SkillTime && !CheckSkill && IsPossibleSkill)
+                            {
+                                CurrentAction = MobActionEnum.UseAttackSkill;
+                            }
                             else
-                            CurrentAction = MobActionEnum.Attack;
+                            {
+                                CurrentAction = MobActionEnum.Attack;
+                            }
                         }
                         else if (Dead)
                         {
@@ -298,7 +308,7 @@ namespace DigitalWorldOnline.Commons.Models.Config
 
                 case MobActionEnum.Reward:
                     {
-                        if(Coliseum)
+                        if (Coliseum)
                         {
                             CurrentAction = MobActionEnum.Destroy;
                         }
@@ -307,7 +317,6 @@ namespace DigitalWorldOnline.Commons.Models.Config
                             CurrentAction = MobActionEnum.Respawn;
                             LastActionTime = DateTime.Now.AddSeconds(3 + RespawnInterval);
                         }
-                 
                     }
                     break;
 
@@ -407,7 +416,7 @@ namespace DigitalWorldOnline.Commons.Models.Config
             {
                 if (targetTamer?.TargetMobs != null)
                 {
-                    targetTamer.TargetMobs.RemoveAll(x => x.Id == Id);
+                    targetTamer.TargetMobs?.RemoveAll(x => x.Id == Id);
                 }
             });
 
@@ -484,7 +493,7 @@ namespace DigitalWorldOnline.Commons.Models.Config
         public void SetRespawn(bool respawn) => Respawn = respawn;
 
         public void SetDie() => DieTime = DateTime.Now;
-        
+
         public void Die()
         {
             DieTime = DateTime.Now;
@@ -501,7 +510,7 @@ namespace DigitalWorldOnline.Commons.Models.Config
             CurrentLocation.SetX(x);
             CurrentLocation.SetY(y);
         }
-        
+
         public void Move()
         {
             SetInitialLocation();
@@ -531,12 +540,12 @@ namespace DigitalWorldOnline.Commons.Models.Config
 
             NextWalkTime = DateTime.Now.AddMilliseconds(UtilitiesFunctions.RandomInt(7500, 14000));
         }
-        
+
         public void SetNextWalkTime(int seconds = 0)
         {
             NextWalkTime = DateTime.Now.AddSeconds(seconds);
         }
-        
+
         public void SetAgressiveCheckTime(int seconds = 0)
         {
             AgressiveCheckTime = DateTime.Now.AddSeconds(seconds);
@@ -568,5 +577,6 @@ namespace DigitalWorldOnline.Commons.Models.Config
             DeathTime = deathTime;
             ResurrectionTime = resurrectionTime;
         }
+
     }
 }

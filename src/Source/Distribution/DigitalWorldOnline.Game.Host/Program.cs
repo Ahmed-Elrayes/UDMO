@@ -1,21 +1,19 @@
 ﻿using DigitalWorldOnline.Application;
 using DigitalWorldOnline.Application.Admin.Repositories;
 using DigitalWorldOnline.Application.Extensions;
-using DigitalWorldOnline.Application.Services;
 using DigitalWorldOnline.Commons.Interfaces;
 using DigitalWorldOnline.Commons.Repositories.Admin;
 using DigitalWorldOnline.Game.Managers;
 using DigitalWorldOnline.GameHost;
 using DigitalWorldOnline.GameHost.EventsServer;
-using DigitalWorldOnline.Infraestructure;
-using DigitalWorldOnline.Infraestructure.Extensions;
-using DigitalWorldOnline.Infraestructure.Mapping;
-using DigitalWorldOnline.Infraestructure.Repositories.Account;
-using DigitalWorldOnline.Infraestructure.Repositories.Admin;
-using DigitalWorldOnline.Infraestructure.Repositories.Character;
-using DigitalWorldOnline.Infraestructure.Repositories.Config;
-using DigitalWorldOnline.Infraestructure.Repositories.Routine;
-using DigitalWorldOnline.Infraestructure.Repositories.Server;
+using DigitalWorldOnline.Infrastructure;
+using DigitalWorldOnline.Infrastructure.Mapping;
+using DigitalWorldOnline.Infrastructure.Repositories.Account;
+using DigitalWorldOnline.Infrastructure.Repositories.Admin;
+using DigitalWorldOnline.Infrastructure.Repositories.Character;
+using DigitalWorldOnline.Infrastructure.Repositories.Config;
+using DigitalWorldOnline.Infrastructure.Repositories.Routine;
+using DigitalWorldOnline.Infrastructure.Repositories.Server;
 using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +23,7 @@ using Serilog.Events;
 using System.Globalization;
 using System.Reflection;
 using DigitalWorldOnline.Commons.Utils;
+using DigitalWorldOnline.Game.PacketProcessors;
 
 namespace DigitalWorldOnline.Game
 {
@@ -39,7 +38,18 @@ namespace DigitalWorldOnline.Game
         {
             Console.WriteLine(((Exception)e.ExceptionObject).InnerException);
             if (e.IsTerminating)
+            {
+                var message = "";
+                var exceptionStackTrace = "";
+                if (e.ExceptionObject is Exception exception) 
+                {
+                    message =  exception.Message;
+                    exceptionStackTrace = exception.StackTrace;
+                }
+                Console.WriteLine($"{message}");
+                Console.WriteLine($"{exceptionStackTrace}");
                 Console.WriteLine("Terminating by unhandled exception...");
+            }
             else
                 Console.WriteLine("Received unhandled exception.");
 
@@ -51,7 +61,7 @@ namespace DigitalWorldOnline.Game
             AppDomain.CurrentDomain.UnhandledException += UnhandledExceptionHandler;
             Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
 
-            return Host.CreateDefaultBuilder(args)
+            var host =  Host.CreateDefaultBuilder(args)
                 .UseSerilog()
                 .UseEnvironment("Development")
                 .ConfigureServices((context, services) =>
@@ -72,31 +82,32 @@ namespace DigitalWorldOnline.Game
 
                     services.AddScoped<IConfigQueriesRepository, ConfigQueriesRepository>();
                     services.AddScoped<IConfigCommandsRepository, ConfigCommandsRepository>();
-                    
+
                     services.AddScoped<IRoutineRepository, RoutineRepository>();
 
                     //services.AddScoped<IEmailService, EmailService>();
-
+                    services.AddSingleton<AssetsLoader>();
+                    services.AddSingleton<ConfigsLoader>();
                     services.AddSingleton<DropManager>();
                     services.AddSingleton<StatusManager>();
                     services.AddSingleton<ExpManager>();
                     services.AddSingleton<PartyManager>();
+                    services.AddSingleton<EventManager>();
+
 
                     services.AddSingleton<EventQueueManager>();
-                    
+
                     services.AddSingleton<MapServer>();
                     services.AddSingleton<PvpServer>();
-                    //services.AddSingleton<EventServer>();
+                    services.AddSingleton<EventServer>();
                     services.AddSingleton<DungeonsServer>();
-                    services.AddSingleton<AssetsLoader>();
-                    services.AddSingleton<ConfigsLoader>();
                     services.AddSingleton<GameMasterCommandsProcessor>();
                     services.AddSingleton<PlayerCommandsProcessor>();
+                    services.AddSingleton<BanForCheating>();
 
                     services.AddSingleton<ISender, ScopedSender<Mediator>>();
                     services.AddSingleton<IProcessor, GamePacketProcessor>();
                     services.AddSingleton(ConfigureLogger(context.Configuration));
-
                     services.AddHostedService<GameServer>();
 
                     services.AddMediatR(typeof(MediatorApplicationHandlerExtension).GetTypeInfo().Assembly);
@@ -108,10 +119,12 @@ namespace DigitalWorldOnline.Game
                 .ConfigureHostConfiguration(hostConfig =>
                 {
                     hostConfig.SetBasePath(Directory.GetCurrentDirectory())
-                              .AddEnvironmentVariables(Constants.Configuration.EnvironmentPrefix)
-                              .AddUserSecrets<Program>();
+                        .AddEnvironmentVariables(Constants.Configuration.EnvironmentPrefix)
+                        .AddUserSecrets<Program>();
                 })
                 .Build();
+            SingletonResolver.Services = host.Services;
+            return host;
         }
 
         private static void AddAutoMapper(IServiceCollection services)
@@ -133,32 +146,35 @@ namespace DigitalWorldOnline.Game
                 .Where(t => typeof(IGamePacketProcessor).IsAssignableFrom(t) && !t.IsInterface)
                 .ToList();
 
-            packetProcessors.ForEach(processor =>
-            {
-                services.AddSingleton(typeof(IGamePacketProcessor), processor);
-            });
+            packetProcessors.ForEach(processor => { services.AddSingleton(typeof(IGamePacketProcessor), processor); });
         }
 
         private static ILogger ConfigureLogger(IConfiguration configuration)
         {
             return new LoggerConfiguration()
                 .MinimumLevel.Verbose()
-                .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}", restrictedToMinimumLevel: LogEventLevel.Information)
+                .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}",
+                    restrictedToMinimumLevel: LogEventLevel.Information)
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Verbose)
-                    .WriteTo.RollingFile(configuration["Log:VerboseRepository"] ?? "logs\\Verbose\\GameServer", retainedFileCountLimit: 10))
+                    .WriteTo.RollingFile(configuration["Log:VerboseRepository"] ?? "logs\\Verbose\\GameServer",
+                        retainedFileCountLimit: 10))
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Debug)
-                    .WriteTo.RollingFile(configuration["Log:DebugRepository"] ?? "logs\\Debug\\GameServer", retainedFileCountLimit: 5))
+                    .WriteTo.RollingFile(configuration["Log:DebugRepository"] ?? "logs\\Debug\\GameServer",
+                        retainedFileCountLimit: 5))
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Information)
-                    .WriteTo.RollingFile(configuration["Log:InformationRepository"] ?? "logs\\Information\\GameServer", retainedFileCountLimit: 5))
+                    .WriteTo.RollingFile(configuration["Log:InformationRepository"] ?? "logs\\Information\\GameServer",
+                        retainedFileCountLimit: 5))
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Warning)
-                    .WriteTo.RollingFile(configuration["Log:WarningRepository"] ?? "logs\\Warning\\GameServer", retainedFileCountLimit: 5))
+                    .WriteTo.RollingFile(configuration["Log:WarningRepository"] ?? "logs\\Warning\\GameServer",
+                        retainedFileCountLimit: 5))
                 .WriteTo.Logger(lc => lc
                     .Filter.ByIncludingOnly(e => e.Level == LogEventLevel.Error)
-                    .WriteTo.RollingFile(configuration["Log:ErrorRepository"] ?? "logs\\Error\\GameServer", retainedFileCountLimit: 5))
+                    .WriteTo.RollingFile(configuration["Log:ErrorRepository"] ?? "logs\\Error\\GameServer",
+                        retainedFileCountLimit: 5))
                 .CreateLogger();
         }
     }

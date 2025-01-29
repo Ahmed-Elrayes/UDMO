@@ -25,6 +25,6 @@
         /// <summary>
         /// Account permanently blocked.
         /// </summary>
-        Permannent = 4
+        Permanent = 4
     }
 }

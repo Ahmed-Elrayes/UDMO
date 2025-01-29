@@ -1,12 +1,17 @@
 ﻿using DigitalWorldOnline.Application.Separar.Commands.Delete;
 using DigitalWorldOnline.Commons.Entities;
+using DigitalWorldOnline.Commons.Enums.ClientEnums;
 using DigitalWorldOnline.Commons.Enums.PacketProcessor;
 using DigitalWorldOnline.Commons.Interfaces;
+using DigitalWorldOnline.Commons.Models.Mechanics;
 using DigitalWorldOnline.Commons.Packets.GameServer;
 using DigitalWorldOnline.Commons.Packets.MapServer;
 using DigitalWorldOnline.GameHost;
 using MediatR;
 using Serilog;
+using AutoMapper;
+using DigitalWorldOnline.Commons.Utils;
+using DigitalWorldOnline.GameHost.EventsServer;
 
 namespace DigitalWorldOnline.Game.PacketProcessors
 {
@@ -16,49 +21,82 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
         private readonly MapServer _mapServer;
         private readonly DungeonsServer _dungeonServer;
+        private readonly EventServer _eventServer;
+        private readonly PvpServer _pvpServer;
         private readonly ILogger _logger;
         private readonly ISender _sender;
+        private readonly IMapper _mapper;
 
         public GuildDeletePacketProcessor(
             MapServer mapServer,
+            DungeonsServer dungeonServer,
+            EventServer eventServer,
+            PvpServer pvpServer,
             ILogger logger,
             ISender sender,
-            DungeonsServer dungeonServer)
+            IMapper mapper)
         {
             _mapServer = mapServer;
+            _dungeonServer = dungeonServer;
+            _eventServer = eventServer;
+            _pvpServer = pvpServer;
             _logger = logger;
             _sender = sender;
-            _dungeonServer = dungeonServer;
+            _mapper = mapper;
         }
 
         public async Task Process(GameClient client, byte[] packetData)
         {
+            _logger.Debug($"GuildDelete Packet 2102");
+
             if (client.Tamer.Guild != null)
             {
-                //TODO: send to members if the client let you delete with members
-                _logger.Debug($"Sending guild delete packet for character {client.TamerId}...");
-                client.Send(new GuildDeletePacket(client.Tamer.Guild.Name));
+                var guild = client.Tamer.Guild;
 
-                _logger.Information($"Deleting guild for guild {client.Tamer.Guild.Id}...");
-                await _sender.Send(new DeleteGuildCommand(client.Tamer.Guild.Id));
+                _logger.Debug($"Deleting guild {guild.Id} : {guild.Name}");
 
-                _logger.Verbose($"Character {client.TamerId} deleted guild {client.Tamer.Guild.Id} {client.Tamer.Guild.Name}.");
+                client.Send(new GuildDeletePacket(guild.Name));
 
-                client.Tamer.SetGuild();
-
-                if (client.DungeonMap)
+                try
                 {
-                    _dungeonServer.BroadcastForTargetTamers(client.TamerId, new UnloadTamerPacket(client.Tamer).Serialize());
-                    _dungeonServer.BroadcastForTargetTamers(client.TamerId, new LoadTamerPacket(client.Tamer).Serialize());
-                    _dungeonServer.BroadcastForTargetTamers(client.TamerId, new LoadBuffsPacket(client.Tamer).Serialize());
-                }
-                else
-                {
+                    await _sender.Send(new DeleteGuildCommand(guild.Id));
 
-                    _mapServer.BroadcastForTargetTamers(client.TamerId, new UnloadTamerPacket(client.Tamer).Serialize());
-                    _mapServer.BroadcastForTargetTamers(client.TamerId, new LoadTamerPacket(client.Tamer).Serialize());
-                    _mapServer.BroadcastForTargetTamers(client.TamerId, new LoadBuffsPacket(client.Tamer).Serialize());
+                    client.Tamer.SetGuild();
                 }
+                catch (Exception ex)
+                {
+                    _logger.Error($"ErrorGuild:\n{ex.Message}");
+                }
+
+                _eventServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                    new UnloadTamerPacket(client.Tamer).Serialize(),
+                    new LoadTamerPacket(client.Tamer).Serialize(),
+                    new LoadBuffsPacket(client.Tamer).Serialize()
+                ));
+
+                _dungeonServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                    new UnloadTamerPacket(client.Tamer).Serialize(),
+                    new LoadTamerPacket(client.Tamer).Serialize(),
+                    new LoadBuffsPacket(client.Tamer).Serialize()
+                ));
+
+                _pvpServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                    new UnloadTamerPacket(client.Tamer).Serialize(),
+                    new LoadTamerPacket(client.Tamer).Serialize(),
+                    new LoadBuffsPacket(client.Tamer).Serialize()
+                ));
+
+                _mapServer.BroadcastForTargetTamers(client.TamerId, UtilitiesFunctions.GroupPackets(
+                    new UnloadTamerPacket(client.Tamer).Serialize(),
+                    new LoadTamerPacket(client.Tamer).Serialize(),
+                    new LoadBuffsPacket(client.Tamer).Serialize()
+                ));
+
+                _logger.Debug($"Tamer {client.Tamer.Name} deleted guild {guild.Id} : {guild.Name}.");
+            }
+            else
+            {
+                _logger.Debug($"Tamer {client.Tamer.Name} not in guild.");
             }
         }
     }
