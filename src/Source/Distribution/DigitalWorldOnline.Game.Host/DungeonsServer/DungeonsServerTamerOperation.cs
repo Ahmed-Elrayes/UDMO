@@ -327,44 +327,39 @@ namespace DigitalWorldOnline.GameHost
                             .Serialize());
 
                      var party = _partyManager.FindParty(client.Tamer.Id);
-                    if (party == null)
-                    {
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(0).Serialize());
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(1).Serialize());
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(2).Serialize());
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(3).Serialize());
+                     if (party != null && party.Members.Count == 1)
+                     {
+                         BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(0).Serialize());
+                         BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(1).Serialize());
+                         BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(2).Serialize());
+                         BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(3).Serialize());
+                         _partyManager.RemoveParty(party.Id);
+                     }
+                     else if(party != null && party.Members.Count > 1)
+                     {
+               
+                        
+                         party.UpdateMember(party[client.Tamer.Id], client.Tamer);
 
-                    }
-                    else if (party != null && party.Members.Count == 1)
-                    {
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(0).Serialize());
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(1).Serialize());
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(2).Serialize());
-                        BroadcastForTargetTamers(client.Tamer.Id,new PartyMemberKickPacket(3).Serialize());
-                        _partyManager.RemoveParty(party.Id);
-                    }
-                    else
-                    {
-                        party.UpdateMember(party[client.Tamer.Id],client.Tamer);
+                         map.BroadcastForTargetTamers(party.GetMembersIdList(),
+                             new PartyMemberInfoPacket(party[client.Tamer.Id]).Serialize());
 
-                        map.BroadcastForTargetTamers(party.GetMembersIdList(),
-                            new PartyMemberInfoPacket(party[client.Tamer.Id]).Serialize());
+                         var memberEntry = party.GetMemberById(client.TamerId);
+                         var leaveTargetKey = memberEntry.Value.Key;
 
-                        var memberEntry = party.GetMemberById(client.TamerId);
-                        var leaveTargetKey = memberEntry.Value.Key;
+                         var currentLeaderEntry = party.GetMemberById(party.LeaderId);
+                         client.Send(new PartyMemberListPacket(party, client.Tamer.Id));
 
-                        var currentLeaderEntry = party.GetMemberById(party.LeaderId);
+                         if (currentLeaderEntry != null)
+                         {
+                             var currentLeaderKey = currentLeaderEntry.Value.Key;
+                             party.LeaderSlot = currentLeaderKey;
 
-                        if (currentLeaderEntry != null)
-                        {
-                            var currentLeaderKey = currentLeaderEntry.Value.Key;
-                            party.LeaderSlot = currentLeaderKey;
+                             BroadcastForTargetTamers(party.GetMembersIdList(),
+                                 new PartyLeaderChangedPacket((int)currentLeaderKey).Serialize());
 
-                            BroadcastForTargetTamers(party.GetMembersIdList(),
-                                new PartyLeaderChangedPacket((int)currentLeaderKey).Serialize());
-
-                        }
-                    }
+                         }
+                     }
                 }
 
                 if (tamer.SaveResourcesTime)
@@ -706,6 +701,7 @@ namespace DigitalWorldOnline.GameHost
 
             if (!tamer.Partner.IsAttacking && tamer.TargetMob != null && tamer.TargetMob.Alive & tamer.Partner.Alive)
             {
+                if (tamer.TargetMob == null) return;
                 tamer.Partner.SetEndAttacking(tamer.Partner.AS);
                 tamer.SetHidden(false);
 

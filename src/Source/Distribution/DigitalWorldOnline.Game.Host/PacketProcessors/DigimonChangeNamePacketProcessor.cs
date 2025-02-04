@@ -55,7 +55,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             var inventoryItem = client.Tamer.Inventory.FindItemBySlot(itemSlot);
 
-            _logger.Information($"itemSlot: {itemSlot} | inventoryItem: {inventoryItem.ItemId} | inventoryItem: {inventoryItem.Id}");
+            //_logger.Information($"itemSlot: {itemSlot} | inventoryItem: {inventoryItem.ItemId} | inventoryItem: {inventoryItem.Id}");
 
             var mapConfig = await _sender.Send(new GameMapConfigByMapIdQuery(client.Tamer.Location.MapId));
             

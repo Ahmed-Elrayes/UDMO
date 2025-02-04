@@ -22,11 +22,11 @@ namespace DigitalWorldOnline.Game.PacketProcessors
         {
             var packets = new GamePacketReader(packetData);
 
-            _logger.Information($"Reading Packet 3229 -> ArchiveAcademyExtraction");
+            _logger.Debug($"Reading Packet 3229 -> ArchiveAcademyExtraction");
 
             var AcademySlot = packets.ReadByte();
 
-            _logger.Information($"AcademySlot: {AcademySlot}");
+            _logger.Debug($"AcademySlot: {AcademySlot}");
 
             var packet = new PacketWriter();
 

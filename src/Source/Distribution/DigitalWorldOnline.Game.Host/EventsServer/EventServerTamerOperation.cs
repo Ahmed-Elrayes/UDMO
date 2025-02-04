@@ -795,8 +795,7 @@ namespace DigitalWorldOnline.GameHost.EventsServer
 
                 if (missed)
                 {
-                    _logger.Warning(
-                        $"Partner {tamer.Partner.Id} missed hit on partner {tamer.TargetPartner.Id} - {tamer.TargetPartner.Name}.");
+                   // _logger.Warning($"Partner {tamer.Partner.Id} missed hit on partner {tamer.TargetPartner.Id} - {tamer.TargetPartner.Name}.");
                     BroadcastForTamerViewsAndSelf(tamer.Id,
                         new MissHitPacket(tamer.Partner.GeneralHandler, tamer.TargetPartner.GeneralHandler)
                             .Serialize());
@@ -879,7 +878,7 @@ namespace DigitalWorldOnline.GameHost.EventsServer
 
                 if (!tamer.InBattle)
                 {
-                    _logger.Information($"Character {tamer.Id} engaged {tamer.TargetMob.Id} - {tamer.TargetMob.Name}.");
+                    //_logger.Information($"Character {tamer.Id} engaged {tamer.TargetMob.Id} - {tamer.TargetMob.Name}.");
                     BroadcastForTamerViewsAndSelf(tamer.Id,
                         new SetCombatOnPacket(tamer.Partner.GeneralHandler).Serialize());
                     tamer.StartBattle(tamer.TargetMob);
@@ -888,7 +887,7 @@ namespace DigitalWorldOnline.GameHost.EventsServer
 
                 if (!tamer.TargetMob.InBattle)
                 {
-                    _logger.Information($"Mob {tamer.TargetMob.Name} engaged battle with {tamer.Partner.Name}.");
+                  //  _logger.Information($"Mob {tamer.TargetMob.Name} engaged battle with {tamer.Partner.Name}.");
                     BroadcastForTamerViewsAndSelf(tamer.Id,
                         new SetCombatOnPacket(tamer.TargetMob.GeneralHandler).Serialize());
                     tamer.TargetMob.StartBattle(tamer);

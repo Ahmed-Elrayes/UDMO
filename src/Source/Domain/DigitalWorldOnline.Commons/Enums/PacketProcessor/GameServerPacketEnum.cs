@@ -406,6 +406,8 @@ namespace DigitalWorldOnline.Commons.Enums.PacketProcessor
         /// </summary>
         RemoveFriend = 2402,
 
+        FriendList = 2404,
+
         /// <summary>
         /// Loads the friend information.
         /// </summary>

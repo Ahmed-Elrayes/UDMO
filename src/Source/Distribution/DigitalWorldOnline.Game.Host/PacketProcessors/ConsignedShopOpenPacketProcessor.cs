@@ -100,7 +100,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
             foreach (var item in sellList)
             {
-                _logger.Information($"item: {item.ItemId} and amount: {item.Amount}");
+                //_logger.Information($"item: {item.ItemId} and amount: {item.Amount}");
                 item.SetItemInfo(_assets.ItemInfo.First(x => x.ItemId == item.ItemId));
 
                 var itemsCount = sellList.Count(x =>
@@ -108,7 +108,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
 
                 if (itemsCount > 0)
                 {
-                    _logger.Error($"Tamer {client.Tamer.Name} tryed to add 2 items of same id with different price!");
+                   // _logger.Error($"Tamer {client.Tamer.Name} tryed to add 2 items of same id with different price!");
                     client.Send(new DisconnectUserPacket("You cant add 2 items of same id with different price!")
                         .Serialize());
                     return;

@@ -1432,7 +1432,7 @@ namespace DigitalWorldOnline.Game
                                 mob.SetId(mob.Id);
                                 mob.SetLocation(mob.Location.MapId, mob.Location.X, mob.Location.Y);
                                 mob.SetDuration();
-                                _mapServer.AddSummonMobs(mob);
+                                _mapServer.AddSummonMobs(mob.Location.MapId,mob);
 
                                 _logger.Information($"Mob {mob.Type} : {mob.Name} spawned from Summon ID {summonId}!");
                             }

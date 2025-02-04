@@ -637,6 +637,8 @@ namespace DigitalWorldOnline.Commons.Models.Character
         /// </summary>
         public void StartBattle(MobConfigModel mobConfig)
         {
+            if (mobConfig == null)
+                return;
             if (!TargetMobs.Any(x => x.Id == mobConfig.Id))
                 TargetMobs.Add(mobConfig);
 

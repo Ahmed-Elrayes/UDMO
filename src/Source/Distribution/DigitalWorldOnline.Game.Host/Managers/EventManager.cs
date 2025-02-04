@@ -25,8 +25,8 @@ namespace DigitalWorldOnline.Game.Managers
         private const int roundCooldownDuration = 40; // COOLDOWN PER ROUND (mob duration should NEVER BE HIGHER than cooldown of a round)
         private int currentRound = 1;
         private bool roundMessageSent = false;
-        private const int restartCooldownDuration = 7200; // Cooldown after all rounds
-        private const int summonCooldownDuration = 10; // RESPAWN MOB TIME
+        private const int restartCooldownDuration = 9000; // Cooldown after all rounds
+        private const int summonCooldownDuration = 20; // RESPAWN MOB TIME
         private bool restartMessageSent = false;
         private DateTime lastSummonTime = DateTime.MinValue;
         private bool roundEndMessageSent = false;
@@ -97,7 +97,7 @@ namespace DigitalWorldOnline.Game.Managers
                 {
                     if (!roundEndMessageSent)
                     {
-                        map.BroadcastGlobal(new NoticeMessagePacket($"Round {currentRound} has ended. Next round will start in 30 seconds...").Serialize());
+                        map.BroadcastGlobal(new NoticeMessagePacket($"Round {currentRound} has ended. Next round will start in 40 seconds...").Serialize());
                         roundEndMessageSent = true;
                         roundEndCooldownStartTime = DateTime.Now;
                     }
@@ -166,7 +166,7 @@ namespace DigitalWorldOnline.Game.Managers
                     mob.SetId(mob.Id);
                     mob.SetLocation(mob.Location.MapId,mob.Location.X,mob.Location.Y);
                     mob.SetDuration();
-                    maps.AddSummonMobs(mob);
+                    maps.AddSummonMobs(mob.Location.MapId,mob);
                 }
             }
         }

@@ -210,6 +210,22 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                     await Task.Delay(1000);
 
                 character.SetGenericHandler(character.Partner.GeneralHandler);
+                if (!client.DungeonMap)
+                {
+                    var region = _assets.Maps.FirstOrDefault(x => x.MapId == character.Location.MapId);
+
+                    if (region != null)
+                    {
+                        if (character.MapRegions[region.RegionIndex].Unlocked != 0x80)
+                        {
+                            var characterRegion = character.MapRegions[region.RegionIndex];
+                            characterRegion.Unlock();
+
+                            await _sender.Send(new UpdateCharacterMapRegionCommand(characterRegion));
+                        }
+                    }
+                }
+                client.Send(new InitialInfoPacket(character, null));
 
                 var party = _partyManager.FindParty(client.TamerId);
 
@@ -242,28 +258,17 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                                 new PartyMemberMovimentationPacket(partyMember).Serialize()
                             ));
                     }
+                    await Task.Delay(100);
+
+                    client.Send(new PartyMemberListPacket(party,character.Id));
                 }
 
-                if (!client.DungeonMap)
-                {
-                    var region = _assets.Maps.FirstOrDefault(x => x.MapId == character.Location.MapId);
 
-                    if (region != null)
-                    {
-                        if (character.MapRegions[region.RegionIndex].Unlocked != 0x80)
-                        {
-                            var characterRegion = character.MapRegions[region.RegionIndex];
-                            characterRegion.Unlock();
-
-                            await _sender.Send(new UpdateCharacterMapRegionCommand(characterRegion));
-                        }
-                    }
-                }
 
                 await ReceiveArenaPoints(client);
                 _logger.Debug($"Received arena points for tamer {client.Tamer.Name}");
-
-                client.Send(new InitialInfoPacket(character, party));
+                
+                
                 _logger.Debug($"Send initial packet for tamer {client.Tamer.Name}");
 
                 await _sender.Send(new ChangeTamerIdTPCommand(client.Tamer.Id, (int)0));

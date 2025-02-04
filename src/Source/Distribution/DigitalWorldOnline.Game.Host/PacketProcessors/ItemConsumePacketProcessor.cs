@@ -80,7 +80,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
             
             var itemSlot = packet.ReadShort();
           
-            _logger.Information($"Slot: {itemSlot}");
+            _logger.Debug($"Slot: {itemSlot}");
 
             if (client.Partner == null)
             {
@@ -98,7 +98,7 @@ namespace DigitalWorldOnline.Game.PacketProcessors
                 return;
             }
 
-            _logger.Information($"Item: {targetItem.ItemInfo.Name} | Slot: {itemSlot} | itemId: {targetItem.ItemId}");
+            _logger.Debug($"Item: {targetItem.ItemInfo.Name} | Slot: {itemSlot} | itemId: {targetItem.ItemId}");
 
             if (targetItem.ItemInfo.Type == 60)
             {
